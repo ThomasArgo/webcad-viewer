@@ -4,20 +4,25 @@ font-family:Arial, sans-serif;
 height:100vh;
 overflow:hidden;
 
-background:linear-gradient(
-135deg,
-#0b2a3a,
-#0e3a52,
-#09202e
-);
+background:linear-gradient(-45deg,#0a2433,#0d3b55,#0a2d42,#081f2d);
+background-size:400% 400%;
+animation:gradientMove 18s ease infinite;
 
 color:#e6f4ff;
+}
+
+@keyframes gradientMove{
+
+0%{background-position:0% 50%;}
+50%{background-position:100% 50%;}
+100%{background-position:0% 50%;}
+
 }
 
 .app-shell{
 display:flex;
 height:100vh;
-backdrop-filter:blur(10px);
+backdrop-filter:blur(8px);
 }
 
 .sidebar{
@@ -25,15 +30,15 @@ backdrop-filter:blur(10px);
 width:260px;
 padding:22px;
 
-background:rgba(8,25,35,0.85);
+background:rgba(6,20,30,0.85);
 
-border-right:1px solid rgba(80,180,255,0.15);
+border-right:1px solid rgba(90,180,255,0.2);
 }
 
 .sidebar h1{
 margin-top:0;
 font-size:22px;
-color:#7ecbff;
+color:#79c8ff;
 }
 
 .subtitle{
