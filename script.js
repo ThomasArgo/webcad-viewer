@@ -7,7 +7,7 @@ import { FBXLoader } from "https://unpkg.com/three@0.160.0/examples/jsm/loaders/
 const canvas = document.getElementById("viewer-canvas");
 
 const scene = new THREE.Scene();
-scene.background = new THREE.Color(0x0f2027);
+scene.background = new THREE.Color(0x0b2a3a);
 
 const camera = new THREE.PerspectiveCamera(
 75,
@@ -16,7 +16,7 @@ window.innerWidth / window.innerHeight,
 1000
 );
 
-camera.position.set(0,1,3);
+camera.position.set(3,2,3);
 
 const renderer = new THREE.WebGLRenderer({canvas, antialias:true});
 renderer.setSize(window.innerWidth, window.innerHeight);
@@ -28,7 +28,14 @@ const light1 = new THREE.DirectionalLight(0xffffff,1);
 light1.position.set(5,5,5);
 scene.add(light1);
 
-scene.add(new THREE.AmbientLight(0xffffff,0.5));
+const light2 = new THREE.DirectionalLight(0xffffff,0.5);
+light2.position.set(-5,3,-5);
+scene.add(light2);
+
+scene.add(new THREE.AmbientLight(0xffffff,0.6));
+
+const grid = new THREE.GridHelper(10,20,0x3aa0ff,0x1b4a66);
+scene.add(grid);
 
 let currentModel = null;
 
@@ -59,9 +66,10 @@ const center = box.getCenter(new THREE.Vector3());
 object.position.sub(center);
 
 const size = box.getSize(new THREE.Vector3()).length();
-const distance = size * 1.5;
+const distance = size * 1.2;
 
 camera.position.set(distance,distance,distance);
+
 controls.target.set(0,0,0);
 controls.update();
 }
@@ -77,6 +85,12 @@ reader.onload = function(event){
 
 clearModel();
 
+const material = new THREE.MeshStandardMaterial({
+color:0x4aa3ff,
+metalness:0.2,
+roughness:0.6
+});
+
 if(file.name.endsWith(".obj")){
 
 const loader = new OBJLoader();
@@ -84,15 +98,12 @@ const object = loader.parse(event.target.result);
 
 object.traverse(child=>{
 if(child.isMesh){
+child.material = material;
 updateStats(child.geometry);
 }
 });
 
 currentModel = object;
-scene.add(object);
-centerModel(object);
-
-statusText.textContent = "OBJ model loaded.";
 
 }
 
@@ -103,14 +114,8 @@ const geometry = loader.parse(event.target.result);
 
 updateStats(geometry);
 
-const material = new THREE.MeshStandardMaterial({color:0x4aa3ff});
-const mesh = new THREE.Mesh(geometry, material);
+currentModel = new THREE.Mesh(geometry, material);
 
-currentModel = mesh;
-scene.add(mesh);
-centerModel(mesh);
-
-statusText.textContent = "STL model loaded.";
 }
 
 else if(file.name.endsWith(".fbx")){
@@ -119,17 +124,20 @@ const loader = new FBXLoader();
 const object = loader.parse(event.target.result);
 
 object.traverse(child=>{
-if(child.isMesh && child.geometry){
+if(child.isMesh){
+child.material = material;
 updateStats(child.geometry);
 }
 });
 
 currentModel = object;
-scene.add(object);
-centerModel(object);
 
-statusText.textContent = "FBX model loaded.";
 }
+
+scene.add(currentModel);
+centerModel(currentModel);
+
+statusText.textContent = file.name + " loaded.";
 
 };
 
@@ -169,6 +177,7 @@ window.addEventListener("resize", ()=>{
 
 camera.aspect = window.innerWidth / window.innerHeight;
 camera.updateProjectionMatrix();
+
 renderer.setSize(window.innerWidth, window.innerHeight);
 
 });
