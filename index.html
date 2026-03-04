@@ -1,0 +1,44 @@
+diff --git a/index.html b/index.html
+new file mode 100644
+index 0000000000000000000000000000000000000000..ecfacf7febf8fe8418e5f410c457dc922ddda3bb
+--- /dev/null
++++ b/index.html
+@@ -0,0 +1,38 @@
++<!DOCTYPE html>
++<html lang="en">
++  <head>
++    <meta charset="UTF-8" />
++    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
++    <title>WebCAD Viewer</title>
++    <link rel="stylesheet" href="style.css" />
++  </head>
++  <body>
++    <div class="app-shell">
++      <aside class="sidebar">
++        <h1>WebCAD Viewer</h1>
++        <p class="subtitle">Upload OBJ/STL files and inspect them in 3D.</p>
++
++        <label class="file-input-label" for="model-upload">Choose model</label>
++        <input id="model-upload" type="file" accept=".obj,.stl" />
++
++        <label class="toggle-row" for="wireframe-toggle">
++          <input id="wireframe-toggle" type="checkbox" />
++          <span>Wireframe mode</span>
++        </label>
++
++        <div class="stats-card">
++          <h2>Model Stats</h2>
++          <p>Triangles: <span id="triangle-count">0</span></p>
++          <p>Vertices: <span id="vertex-count">0</span></p>
++          <p id="status-text" class="status">Load an OBJ or STL file to begin.</p>
++        </div>
++      </aside>
++
++      <main class="viewport">
++        <canvas id="viewer-canvas"></canvas>
++      </main>
++    </div>
++
++    <script type="module" src="script.js"></script>
++  </body>
++</html>
