@@ -1,124 +1,60 @@
-diff --git a/style.css b/style.css
-new file mode 100644
-index 0000000000000000000000000000000000000000..b6efd53a8bd008c87cc43602cd83f1b253994d6c
---- /dev/null
-+++ b/style.css
-@@ -0,0 +1,118 @@
-+:root {
-+  --bg: #0f1115;
-+  --panel: #171a21;
-+  --panel-border: #2a2f3a;
-+  --text: #e7ecf4;
-+  --muted: #9aa6bb;
-+  --accent: #5f8dff;
-+  --accent-hover: #79a1ff;
-+}
-+
-+* {
-+  box-sizing: border-box;
-+}
-+
-+body {
-+  margin: 0;
-+  font-family: Inter, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
-+  color: var(--text);
-+  background: var(--bg);
-+}
-+
-+.app-shell {
-+  display: grid;
-+  grid-template-columns: 320px 1fr;
-+  height: 100vh;
-+}
-+
-+.sidebar {
-+  background: var(--panel);
-+  border-right: 1px solid var(--panel-border);
-+  padding: 1.5rem;
-+  display: flex;
-+  flex-direction: column;
-+  gap: 1rem;
-+}
-+
-+.sidebar h1 {
-+  margin: 0;
-+  font-size: 1.4rem;
-+}
-+
-+.subtitle {
-+  margin: 0;
-+  color: var(--muted);
-+  line-height: 1.4;
-+}
-+
-+.file-input-label {
-+  width: fit-content;
-+  padding: 0.65rem 1rem;
-+  border-radius: 8px;
-+  background: var(--accent);
-+  color: #fff;
-+  font-weight: 600;
-+  cursor: pointer;
-+  transition: background 0.2s;
-+}
-+
-+.file-input-label:hover {
-+  background: var(--accent-hover);
-+}
-+
-+#model-upload {
-+  display: none;
-+}
-+
-+.toggle-row {
-+  display: flex;
-+  align-items: center;
-+  gap: 0.6rem;
-+  color: var(--text);
-+  cursor: pointer;
-+}
-+
-+.stats-card {
-+  margin-top: 0.5rem;
-+  padding: 1rem;
-+  border: 1px solid var(--panel-border);
-+  border-radius: 10px;
-+  background: #12151c;
-+}
-+
-+.stats-card h2 {
-+  margin: 0 0 0.6rem;
-+  font-size: 1rem;
-+}
-+
-+.stats-card p {
-+  margin: 0.35rem 0;
-+}
-+
-+.status {
-+  margin-top: 0.8rem !important;
-+  color: var(--muted);
-+  font-size: 0.9rem;
-+}
-+
-+.viewport {
-+  position: relative;
-+}
-+
-+#viewer-canvas {
-+  width: 100%;
-+  height: 100%;
-+  display: block;
-+}
-+
-+@media (max-width: 900px) {
-+  .app-shell {
-+    grid-template-columns: 1fr;
-+    grid-template-rows: auto 1fr;
-+  }
-+
-+  .sidebar {
-+    border-right: 0;
-+    border-bottom: 1px solid var(--panel-border);
-+  }
-+}
+body{
+margin:0;
+font-family:Arial, sans-serif;
+background:#0f2027;
+color:#e6f1ff;
+height:100vh;
+overflow:hidden;
+}
+
+.app-shell{
+display:flex;
+height:100vh;
+}
+
+.sidebar{
+width:260px;
+padding:20px;
+background:#111b22;
+border-right:1px solid #1f2f3a;
+}
+
+.sidebar h1{
+margin-top:0;
+font-size:22px;
+}
+
+.subtitle{
+color:#8ea7b5;
+font-size:14px;
+margin-bottom:20px;
+}
+
+input[type="file"]{
+margin-bottom:20px;
+}
+
+.toggle-row{
+display:flex;
+align-items:center;
+gap:8px;
+margin-bottom:20px;
+}
+
+.stats-card{
+background:#0f2027;
+padding:12px;
+border-radius:6px;
+font-size:14px;
+}
+
+.viewport{
+flex:1;
+position:relative;
+}
+
+canvas{
+width:100%;
+height:100%;
+display:block;
+}
