@@ -7,7 +7,6 @@ import { FBXLoader } from "https://unpkg.com/three@0.160.0/examples/jsm/loaders/
 const canvas = document.getElementById("viewer-canvas");
 
 const scene = new THREE.Scene();
-scene.background = new THREE.Color(0x0b2a3a);
 
 const camera = new THREE.PerspectiveCamera(
 75,
@@ -16,7 +15,7 @@ window.innerWidth / window.innerHeight,
 1000
 );
 
-camera.position.set(3,2,3);
+camera.position.set(4,3,4);
 
 const renderer = new THREE.WebGLRenderer({canvas, antialias:true});
 renderer.setSize(window.innerWidth, window.innerHeight);
@@ -24,17 +23,13 @@ renderer.setSize(window.innerWidth, window.innerHeight);
 const controls = new OrbitControls(camera, renderer.domElement);
 controls.enableDamping = true;
 
-const light1 = new THREE.DirectionalLight(0xffffff,1);
-light1.position.set(5,5,5);
-scene.add(light1);
+scene.add(new THREE.AmbientLight(0xffffff,0.7));
 
-const light2 = new THREE.DirectionalLight(0xffffff,0.5);
-light2.position.set(-5,3,-5);
-scene.add(light2);
+const light = new THREE.DirectionalLight(0xffffff,1);
+light.position.set(5,10,5);
+scene.add(light);
 
-scene.add(new THREE.AmbientLight(0xffffff,0.6));
-
-const grid = new THREE.GridHelper(10,20,0x3aa0ff,0x1b4a66);
+const grid = new THREE.GridHelper(20,20,0x3aa0ff,0x1b4a66);
 scene.add(grid);
 
 let currentModel = null;
@@ -51,6 +46,9 @@ currentModel = null;
 }
 
 function updateStats(geometry){
+
+if(!geometry || !geometry.attributes?.position) return;
+
 const vertices = geometry.attributes.position.count;
 const triangles = Math.floor(vertices / 3);
 
@@ -66,7 +64,7 @@ const center = box.getCenter(new THREE.Vector3());
 object.position.sub(center);
 
 const size = box.getSize(new THREE.Vector3()).length();
-const distance = size * 1.2;
+const distance = size * 1.5;
 
 camera.position.set(distance,distance,distance);
 
@@ -74,16 +72,7 @@ controls.target.set(0,0,0);
 controls.update();
 }
 
-document.getElementById("model-upload").addEventListener("change", e=>{
-
-const file = e.target.files[0];
-if(!file) return;
-
-const reader = new FileReader();
-
-reader.onload = function(event){
-
-clearModel();
+function applyMaterial(object){
 
 const material = new THREE.MeshStandardMaterial({
 color:0x4aa3ff,
@@ -91,73 +80,94 @@ metalness:0.2,
 roughness:0.6
 });
 
+object.traverse(child=>{
+
+if(child.isMesh){
+
+child.material = material;
+
+if(child.geometry){
+updateStats(child.geometry);
+}
+
+}
+
+});
+
+}
+
+document.getElementById("model-upload").addEventListener("change", e=>{
+
+const file = e.target.files[0];
+if(!file) return;
+
+clearModel();
+
+const url = URL.createObjectURL(file);
+
 if(file.name.endsWith(".obj")){
 
 const loader = new OBJLoader();
-const object = loader.parse(event.target.result);
 
-object.traverse(child=>{
-if(child.isMesh){
-child.material = material;
-updateStats(child.geometry);
-}
-});
+loader.load(url, object=>{
+
+applyMaterial(object);
 
 currentModel = object;
+
+scene.add(object);
+
+centerModel(object);
+
+statusText.textContent = file.name + " loaded";
+
+});
 
 }
 
 else if(file.name.endsWith(".stl")){
 
 const loader = new STLLoader();
-const geometry = loader.parse(event.target.result);
+
+loader.load(url, geometry=>{
 
 updateStats(geometry);
 
-currentModel = new THREE.Mesh(geometry, material);
+const material = new THREE.MeshStandardMaterial({color:0x4aa3ff});
+
+const mesh = new THREE.Mesh(geometry, material);
+
+currentModel = mesh;
+
+scene.add(mesh);
+
+centerModel(mesh);
+
+statusText.textContent = file.name + " loaded";
+
+});
 
 }
 
 else if(file.name.endsWith(".fbx")){
 
 const loader = new FBXLoader();
-const object = loader.parse(event.target.result);
 
-object.traverse(child=>{
-if(child.isMesh){
-child.material = material;
-updateStats(child.geometry);
-}
-});
+loader.load(url, object=>{
+
+applyMaterial(object);
 
 currentModel = object;
 
-}
+scene.add(object);
 
-scene.add(currentModel);
-centerModel(currentModel);
+centerModel(object);
 
-statusText.textContent = file.name + " loaded.";
-
-};
-
-if(file.name.endsWith(".obj"))
-reader.readAsText(file);
-
-if(file.name.endsWith(".stl") || file.name.endsWith(".fbx"))
-reader.readAsArrayBuffer(file);
+statusText.textContent = file.name + " loaded";
 
 });
 
-document.getElementById("wireframe-toggle").addEventListener("change", e=>{
-
-if(!currentModel) return;
-
-currentModel.traverse?.(child=>{
-if(child.material){
-child.material.wireframe = e.target.checked;
 }
-});
 
 });
 
@@ -176,6 +186,7 @@ animate();
 window.addEventListener("resize", ()=>{
 
 camera.aspect = window.innerWidth / window.innerHeight;
+
 camera.updateProjectionMatrix();
 
 renderer.setSize(window.innerWidth, window.innerHeight);
