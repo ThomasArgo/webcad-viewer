@@ -1,4 +1,4 @@
-## Core features
+## Core features:
 
 - Upload OBJ / STL files
 
@@ -12,7 +12,7 @@
 
 --------------------------------------
 
-## Then add
+## Then add:
 
 - Wireframe toggle
 
