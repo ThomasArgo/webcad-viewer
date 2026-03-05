@@ -118,33 +118,47 @@ meshEl.textContent = meshes;
 
 }
 
-/* STRONG CENTERING FUNCTION */
+/* TRUE MODEL NORMALIZATION */
 
-function centerModel(model){
+function normalizeModel(model){
 
-/* compute bounding box */
+/* calculate bounding box */
 
 const box = new THREE.Box3().setFromObject(model);
 
 const center = new THREE.Vector3();
 box.getCenter(center);
 
-/* shift whole model */
+/* shift vertices instead of object */
 
-model.position.sub(center);
+model.traverse(child=>{
 
-/* normalize scale */
+if(child.isMesh){
+
+child.geometry.translate(
+-center.x,
+-center.y,
+-center.z
+);
+
+}
+
+});
+
+/* recompute bounding box */
+
+const newBox = new THREE.Box3().setFromObject(model);
 
 const size = new THREE.Vector3();
-box.getSize(size);
+newBox.getSize(size);
 
 const maxDim = Math.max(size.x,size.y,size.z);
 
-const scale = 6 / maxDim;
+const scale = 6/maxDim;
 
 model.scale.setScalar(scale);
 
-/* reset camera */
+/* camera reset */
 
 camera.position.set(8,6,8);
 controls.target.set(0,0,0);
@@ -235,11 +249,9 @@ currentModel=pendingModel;
 
 scene.add(currentModel);
 
-/* strong centering */
+/* true centering */
 
-centerModel(currentModel);
-
-/* store rotation */
+normalizeModel(currentModel);
 
 originalRotation.copy(currentModel.rotation);
 
