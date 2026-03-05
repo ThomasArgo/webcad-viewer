@@ -70,10 +70,10 @@ scene.add(light);
 const grid = new THREE.GridHelper(200,200,0x3aa0ff,0x1b4a66);
 scene.add(grid);
 
-/* MODEL ROOT */
+/* MODEL PIVOT */
 
-const modelRoot = new THREE.Group();
-scene.add(modelRoot);
+const modelPivot = new THREE.Group();
+scene.add(modelPivot);
 
 let currentModel = null;
 let pendingModel = null;
@@ -115,36 +115,44 @@ meshEl.textContent = meshes;
 
 }
 
-/* CENTER + FRAME MODEL */
+/* CENTER MODEL RELIABLY */
 
-function centerModel(model){
+function centerModel(){
 
-/* IMPORTANT: update transforms first */
-model.updateMatrixWorld(true);
+if(!currentModel) return;
 
-const box = new THREE.Box3().setFromObject(model);
+/* update transforms */
+
+modelPivot.updateMatrixWorld(true);
+
+/* compute bounding box */
+
+const box = new THREE.Box3().setFromObject(modelPivot);
 
 const center = new THREE.Vector3();
-box.getCenter(center);
-
 const size = new THREE.Vector3();
+
+box.getCenter(center);
 box.getSize(size);
 
-/* recenter model */
-model.position.sub(center);
+/* shift pivot */
 
-/* place grid under model */
-grid.position.y = -size.y / 2;
+modelPivot.position.sub(center);
 
-/* camera framing */
+/* move grid */
+
+grid.position.y = box.min.y - center.y;
+
+/* frame camera */
 
 const maxDim = Math.max(size.x,size.y,size.z);
+
 const fov = camera.fov * (Math.PI/180);
 
 let distance = maxDim / (2 * Math.tan(fov/2));
 distance *= 1.6;
 
-camera.position.set(distance,distance*0.7,distance);
+camera.position.set(distance,distance*0.6,distance);
 
 controls.target.set(0,0,0);
 controls.update();
@@ -228,13 +236,13 @@ viewBtn.addEventListener("click",()=>{
 
 if(!pendingModel) return;
 
-modelRoot.clear();
+modelPivot.clear();
 
 currentModel = pendingModel;
 
-modelRoot.add(currentModel);
+modelPivot.add(currentModel);
 
-centerModel(currentModel);
+centerModel();
 
 originalRotation.copy(currentModel.rotation);
 
@@ -254,13 +262,7 @@ viewBtn.disabled=true;
 
 /* CENTER BUTTON */
 
-centerBtn.addEventListener("click",()=>{
-
-if(!currentModel) return;
-
-centerModel(currentModel);
-
-});
+centerBtn.addEventListener("click",centerModel);
 
 /* WIREFRAME */
 
@@ -308,13 +310,7 @@ grid.visible = e.target.checked;
 
 /* RESET CAMERA */
 
-resetCameraBtn.addEventListener("click",()=>{
-
-if(!currentModel) return;
-
-centerModel(currentModel);
-
-});
+resetCameraBtn.addEventListener("click",centerModel);
 
 /* RESET ROTATION */
 
