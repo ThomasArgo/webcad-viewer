@@ -1,15 +1,11 @@
-/* page */
-
 body{
 margin:0;
-font-family:Arial, sans-serif;
+font-family:Arial;
 height:100vh;
 overflow:hidden;
 background:#071b26;
 color:#e6f4ff;
 }
-
-/* layout */
 
 .app-shell{
 display:flex;
@@ -27,14 +23,13 @@ background:#061821;
 border-right:1px solid rgba(90,180,255,0.2);
 }
 
-/* bubble animation layer (behind everything) */
+/* bubble layer */
 
 .bubble-layer{
 
 position:absolute;
 top:0;
 left:0;
-
 width:100%;
 height:100%;
 
@@ -46,33 +41,22 @@ radial-gradient(circle at 60% 70%,rgba(120,200,255,0.15) 2px,transparent 3px),
 radial-gradient(circle at 40% 80%,rgba(120,200,255,0.2) 3px,transparent 4px),
 radial-gradient(circle at 80% 40%,rgba(120,200,255,0.12) 2px,transparent 3px);
 
-animation:bubbleRise 22s linear infinite;
+animation:bubbleRise 25s linear infinite;
 
 pointer-events:none;
 }
-
-/* ensure sidebar UI is above bubbles */
 
 .sidebar > *:not(.bubble-layer){
 position:relative;
 z-index:1;
 }
 
-/* bubble motion */
-
 @keyframes bubbleRise{
-
-0%{
-transform:translateY(0);
+0%{transform:translateY(0)}
+100%{transform:translateY(-60%)}
 }
 
-100%{
-transform:translateY(-60%);
-}
-
-}
-
-/* sidebar text */
+/* text */
 
 .sidebar h1{
 margin-top:0;
@@ -86,13 +70,11 @@ font-size:14px;
 margin-bottom:20px;
 }
 
-/* file input */
+/* inputs */
 
 input[type="file"]{
 margin-bottom:10px;
 }
-
-/* loading text */
 
 #loading-text{
 display:none;
@@ -112,35 +94,43 @@ background:#3aa0ff;
 color:white;
 font-weight:bold;
 cursor:pointer;
-transition:0.2s;
 }
 
 button:disabled{
-opacity:0.4;
+opacity:.4;
 cursor:not-allowed;
 }
-
-button:hover:not(:disabled){
-background:#5cb6ff;
-}
-
-/* toggle spacing */
 
 .toggle-row{
 display:flex;
 align-items:center;
 gap:8px;
-margin-top:16px;
-margin-bottom:18px;
+margin-top:12px;
 }
 
-/* stats card */
+/* stats */
 
 .stats-card{
+margin-top:20px;
 background:rgba(20,55,75,0.4);
 padding:14px;
 border-radius:8px;
 border:1px solid rgba(90,180,255,0.15);
+}
+
+/* footer */
+
+.sidebar-footer{
+position:absolute;
+bottom:0;
+left:0;
+width:100%;
+padding:10px;
+font-size:12px;
+text-align:center;
+color:#7fa5b7;
+background:rgba(0,0,0,0.2);
+border-top:1px solid rgba(90,180,255,0.15);
 }
 
 /* VIEWPORT */
@@ -149,10 +139,7 @@ border:1px solid rgba(90,180,255,0.15);
 flex:1;
 background:#0b2a3a;
 overflow:hidden;
-position:relative;
 }
-
-/* canvas */
 
 canvas{
 width:100%;
