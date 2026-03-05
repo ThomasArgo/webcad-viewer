@@ -24,7 +24,7 @@ const rotateSpeedSlider = document.getElementById("rotate-speed");
 const resetModelRotationBtn = document.getElementById("reset-model-rotation");
 const resetCameraBtn = document.getElementById("reset-view");
 
-/* scene */
+/* SCENE */
 
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x0b2a3a);
@@ -45,28 +45,32 @@ antialias:true
 
 renderer.setSize(viewport.clientWidth, viewport.clientHeight);
 
+/* important for textures */
+
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+
 const controls = new OrbitControls(camera, renderer.domElement);
 controls.enableDamping = true;
 
-/* lighting */
+/* LIGHTING */
 
-scene.add(new THREE.AmbientLight(0xffffff,0.7));
+scene.add(new THREE.AmbientLight(0xffffff,0.8));
 
 const light = new THREE.DirectionalLight(0xffffff,1);
 light.position.set(5,10,5);
 scene.add(light);
 
-/* grid */
+/* GRID */
 
 const grid = new THREE.GridHelper(40,40,0x3aa0ff,0x1b4a66);
 scene.add(grid);
 
-/* model storage */
+/* MODEL STORAGE */
 
 let currentModel = null;
 let pendingModel = null;
 
-/* clear model */
+/* CLEAR MODEL */
 
 function clearModel(){
 
@@ -75,17 +79,14 @@ scene.remove(currentModel);
 currentModel = null;
 }
 
-triEl.textContent="0";
-vertEl.textContent="0";
-
 }
 
-/* stats */
+/* STATS */
 
 function computeStats(object){
 
-let triangles=0;
-let vertices=0;
+let triangles = 0;
+let vertices = 0;
 
 object.traverse(child=>{
 
@@ -96,9 +97,9 @@ const geo = child.geometry;
 vertices += geo.attributes.position.count;
 
 if(geo.index){
-triangles += geo.index.count/3;
+triangles += geo.index.count / 3;
 }else{
-triangles += geo.attributes.position.count/3;
+triangles += geo.attributes.position.count / 3;
 }
 
 }
@@ -110,36 +111,42 @@ vertEl.textContent = Math.floor(vertices).toLocaleString();
 
 }
 
-/* material */
+/* APPLY MATERIAL ONLY IF NEEDED */
 
-function applyMaterial(obj){
+function ensureMaterial(obj){
 
-const mat = new THREE.MeshStandardMaterial({
+obj.traverse(child=>{
+
+if(child.isMesh){
+
+if(!child.material){
+
+child.material = new THREE.MeshStandardMaterial({
 color:0x4aa3ff,
 metalness:0.2,
 roughness:0.6
 });
 
-obj.traverse(child=>{
-if(child.isMesh){
-child.material = mat;
 }
+
+}
+
 });
 
 }
 
-/* center + scale */
+/* CENTER + SCALE */
 
 function centerModel(obj){
 
-const box=new THREE.Box3().setFromObject(obj);
-const size=box.getSize(new THREE.Vector3());
-const center=box.getCenter(new THREE.Vector3());
+const box = new THREE.Box3().setFromObject(obj);
+const size = box.getSize(new THREE.Vector3());
+const center = box.getCenter(new THREE.Vector3());
 
 obj.position.sub(center);
 
-const maxDim=Math.max(size.x,size.y,size.z);
-const scale=6/maxDim;
+const maxDim = Math.max(size.x,size.y,size.z);
+const scale = 6 / maxDim;
 
 obj.scale.setScalar(scale);
 
@@ -149,20 +156,18 @@ controls.update();
 
 }
 
-/* upload */
+/* FILE UPLOAD */
 
 uploadInput.addEventListener("change",e=>{
 
-const file=e.target.files[0];
+const file = e.target.files[0];
 if(!file) return;
-
-clearModel();
 
 loadingText.style.display="block";
 viewBtn.disabled=true;
 
-const url=URL.createObjectURL(file);
-const ext=file.name.toLowerCase().split(".").pop();
+const url = URL.createObjectURL(file);
+const ext = file.name.toLowerCase().split(".").pop();
 
 /* OBJ */
 
@@ -170,8 +175,11 @@ if(ext==="obj"){
 
 new OBJLoader().load(url,obj=>{
 
-applyMaterial(obj);
-pendingModel=obj;
+ensureMaterial(obj);
+
+pendingModel = obj;
+
+computeStats(obj);
 
 loadingText.style.display="none";
 viewBtn.disabled=false;
@@ -186,12 +194,14 @@ else if(ext==="stl"){
 
 new STLLoader().load(url,geo=>{
 
-const mesh=new THREE.Mesh(
+const mesh = new THREE.Mesh(
 geo,
 new THREE.MeshStandardMaterial({color:0x4aa3ff})
 );
 
-pendingModel=mesh;
+pendingModel = mesh;
+
+computeStats(mesh);
 
 loadingText.style.display="none";
 viewBtn.disabled=false;
@@ -206,8 +216,11 @@ else if(ext==="fbx"){
 
 new FBXLoader().load(url,obj=>{
 
-applyMaterial(obj);
-pendingModel=obj;
+ensureMaterial(obj);
+
+pendingModel = obj;
+
+computeStats(obj);
 
 loadingText.style.display="none";
 viewBtn.disabled=false;
@@ -218,7 +231,7 @@ viewBtn.disabled=false;
 
 });
 
-/* view model */
+/* VIEW MODEL */
 
 viewBtn.addEventListener("click",()=>{
 
@@ -226,13 +239,11 @@ if(!pendingModel) return;
 
 clearModel();
 
-currentModel=pendingModel;
+currentModel = pendingModel;
 
 scene.add(currentModel);
 
 centerModel(currentModel);
-
-computeStats(currentModel);
 
 pendingModel=null;
 
@@ -240,7 +251,7 @@ viewBtn.disabled=true;
 
 });
 
-/* wireframe */
+/* WIREFRAME */
 
 wireToggle.addEventListener("change",e=>{
 
@@ -254,13 +265,13 @@ child.material.wireframe=e.target.checked;
 
 });
 
-/* grid toggle */
+/* GRID */
 
 gridToggle.addEventListener("change",e=>{
 grid.visible=e.target.checked;
 });
 
-/* reset camera */
+/* RESET CAMERA */
 
 resetCameraBtn.addEventListener("click",()=>{
 
@@ -270,7 +281,7 @@ controls.update();
 
 });
 
-/* reset model rotation */
+/* RESET MODEL ROTATION */
 
 resetModelRotationBtn.addEventListener("click",()=>{
 
@@ -280,7 +291,7 @@ currentModel.rotation.set(0,0,0);
 
 });
 
-/* render */
+/* RENDER LOOP */
 
 function animate(){
 
@@ -288,13 +299,11 @@ requestAnimationFrame(animate);
 
 controls.update();
 
-/* auto rotate */
-
 if(autoRotateToggle.checked && currentModel){
 
-const speed=parseFloat(rotateSpeedSlider.value);
+const speed = parseFloat(rotateSpeedSlider.value);
 
-currentModel.rotation.y+=speed;
+currentModel.rotation.y += speed;
 
 }
 
@@ -304,7 +313,7 @@ renderer.render(scene,camera);
 
 animate();
 
-/* resize */
+/* RESIZE */
 
 window.addEventListener("resize",()=>{
 
