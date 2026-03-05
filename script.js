@@ -15,79 +15,82 @@ window.innerWidth / window.innerHeight,
 1000
 );
 
-camera.position.set(4,3,4);
+camera.position.set(3,3,3);
 
-const renderer = new THREE.WebGLRenderer({canvas, antialias:true});
+const renderer = new THREE.WebGLRenderer({
+canvas,
+antialias:true
+});
+
 renderer.setSize(window.innerWidth, window.innerHeight);
 
 const controls = new OrbitControls(camera, renderer.domElement);
 controls.enableDamping = true;
 
+/* lighting */
+
 scene.add(new THREE.AmbientLight(0xffffff,0.7));
 
 const light = new THREE.DirectionalLight(0xffffff,1);
-light.position.set(5,10,5);
+light.position.set(5,5,5);
 scene.add(light);
+
+/* grid */
 
 const grid = new THREE.GridHelper(20,20,0x3aa0ff,0x1b4a66);
 scene.add(grid);
 
 let currentModel = null;
 
-const triangleCount = document.getElementById("triangle-count");
-const vertexCount = document.getElementById("vertex-count");
-const statusText = document.getElementById("status-text");
+const triEl = document.getElementById("triangle-count");
+const vertEl = document.getElementById("vertex-count");
+const status = document.getElementById("status-text");
+
+/* utilities */
 
 function clearModel(){
 if(currentModel){
 scene.remove(currentModel);
-currentModel = null;
+currentModel=null;
 }
 }
 
-function updateStats(geometry){
+function centerModel(obj){
 
-if(!geometry || !geometry.attributes?.position) return;
-
-const vertices = geometry.attributes.position.count;
-const triangles = Math.floor(vertices / 3);
-
-vertexCount.textContent = vertices;
-triangleCount.textContent = triangles;
-}
-
-function centerModel(object){
-
-const box = new THREE.Box3().setFromObject(object);
+const box = new THREE.Box3().setFromObject(obj);
 const center = box.getCenter(new THREE.Vector3());
 
-object.position.sub(center);
+obj.position.sub(center);
 
 const size = box.getSize(new THREE.Vector3()).length();
-const distance = size * 1.5;
+const dist = size * 1.4;
 
-camera.position.set(distance,distance,distance);
+camera.position.set(dist,dist,dist);
 
 controls.target.set(0,0,0);
 controls.update();
 }
 
-function applyMaterial(object){
+function applyMaterial(obj){
 
-const material = new THREE.MeshStandardMaterial({
+const mat = new THREE.MeshStandardMaterial({
 color:0x4aa3ff,
-metalness:0.2,
+metalness:0.1,
 roughness:0.6
 });
 
-object.traverse(child=>{
+obj.traverse(child=>{
 
 if(child.isMesh){
 
-child.material = material;
+child.material = mat;
 
-if(child.geometry){
-updateStats(child.geometry);
+if(child.geometry?.attributes?.position){
+
+const verts = child.geometry.attributes.position.count;
+vertEl.textContent = verts;
+triEl.textContent = Math.floor(verts/3);
+
 }
 
 }
@@ -96,7 +99,9 @@ updateStats(child.geometry);
 
 }
 
-document.getElementById("model-upload").addEventListener("change", e=>{
+/* file upload */
+
+document.getElementById("model-upload").addEventListener("change",e=>{
 
 const file = e.target.files[0];
 if(!file) return;
@@ -105,71 +110,98 @@ clearModel();
 
 const url = URL.createObjectURL(file);
 
-if(file.name.endsWith(".obj")){
+/* OBJ */
+
+if(file.name.toLowerCase().endsWith(".obj")){
 
 const loader = new OBJLoader();
 
-loader.load(url, object=>{
+loader.load(url,obj=>{
 
-applyMaterial(object);
+applyMaterial(obj);
 
-currentModel = object;
+currentModel = obj;
 
-scene.add(object);
+scene.add(obj);
 
-centerModel(object);
+centerModel(obj);
 
-statusText.textContent = file.name + " loaded";
+status.textContent=file.name+" loaded";
 
 });
 
 }
 
-else if(file.name.endsWith(".stl")){
+/* STL */
+
+else if(file.name.toLowerCase().endsWith(".stl")){
 
 const loader = new STLLoader();
 
-loader.load(url, geometry=>{
+loader.load(url,geo=>{
 
-updateStats(geometry);
+const mat = new THREE.MeshStandardMaterial({color:0x4aa3ff});
 
-const material = new THREE.MeshStandardMaterial({color:0x4aa3ff});
+const mesh = new THREE.Mesh(geo,mat);
 
-const mesh = new THREE.Mesh(geometry, material);
+const verts = geo.attributes.position.count;
 
-currentModel = mesh;
+vertEl.textContent=verts;
+triEl.textContent=Math.floor(verts/3);
+
+currentModel=mesh;
 
 scene.add(mesh);
 
 centerModel(mesh);
 
-statusText.textContent = file.name + " loaded";
+status.textContent=file.name+" loaded";
 
 });
 
 }
 
-else if(file.name.endsWith(".fbx")){
+/* FBX */
+
+else if(file.name.toLowerCase().endsWith(".fbx")){
 
 const loader = new FBXLoader();
 
-loader.load(url, object=>{
+loader.load(url,obj=>{
 
-applyMaterial(object);
+applyMaterial(obj);
 
-currentModel = object;
+currentModel=obj;
 
-scene.add(object);
+scene.add(obj);
 
-centerModel(object);
+centerModel(obj);
 
-statusText.textContent = file.name + " loaded";
+status.textContent=file.name+" loaded";
 
 });
 
 }
 
 });
+
+/* wireframe */
+
+document.getElementById("wireframe-toggle").addEventListener("change",e=>{
+
+if(!currentModel) return;
+
+currentModel.traverse(child=>{
+
+if(child.material){
+child.material.wireframe=e.target.checked;
+}
+
+});
+
+});
+
+/* render loop */
 
 function animate(){
 
@@ -183,12 +215,14 @@ renderer.render(scene,camera);
 
 animate();
 
-window.addEventListener("resize", ()=>{
+/* resize */
 
-camera.aspect = window.innerWidth / window.innerHeight;
+window.addEventListener("resize",()=>{
+
+camera.aspect=window.innerWidth/window.innerHeight;
 
 camera.updateProjectionMatrix();
 
-renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.setSize(window.innerWidth,window.innerHeight);
 
 });
