@@ -63,9 +63,7 @@ z-index:1;
 @keyframes bubbleRise{
 
 0%{transform:translateY(0) translateX(0)}
-
 50%{transform:translateY(-30%) translateX(8px)}
-
 100%{transform:translateY(-60%) translateX(-6px)}
 
 }
