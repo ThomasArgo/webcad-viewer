@@ -1,100 +1,104 @@
 import * as THREE from "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js";
-
 import { OrbitControls } from "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/controls/OrbitControls.js";
-
 import { OBJLoader } from "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/loaders/OBJLoader.js";
-
 import { STLLoader } from "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/loaders/STLLoader.js";
-
 import { FBXLoader } from "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/loaders/FBXLoader.js";
 
+/* UI ELEMENTS */
+
 const canvas = document.getElementById("viewer-canvas");
+const viewport = document.querySelector(".viewport");
+
+const uploadInput = document.getElementById("model-upload");
+const viewBtn = document.getElementById("view-model-btn");
+const loadingText = document.getElementById("loading-text");
+
+const triangleCount = document.getElementById("triangle-count");
+const vertexCount = document.getElementById("vertex-count");
+
+const wireToggle = document.getElementById("wireframe-toggle");
+
+/* THREE SCENE */
 
 const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x000000);
 
 const camera = new THREE.PerspectiveCamera(
 75,
-window.innerWidth / window.innerHeight,
+viewport.clientWidth / viewport.clientHeight,
 0.1,
 1000
 );
 
-camera.position.set(3,3,3);
+camera.position.set(6,5,6);
 
 const renderer = new THREE.WebGLRenderer({
 canvas,
 antialias:true
 });
 
-renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.setSize(viewport.clientWidth, viewport.clientHeight);
 
 const controls = new OrbitControls(camera, renderer.domElement);
 controls.enableDamping = true;
 
-/* lighting */
+/* LIGHTING */
 
 scene.add(new THREE.AmbientLight(0xffffff,0.7));
 
 const light = new THREE.DirectionalLight(0xffffff,1);
-light.position.set(5,5,5);
+light.position.set(5,10,5);
 scene.add(light);
 
-/* grid */
+/* GRID */
 
-const grid = new THREE.GridHelper(20,20,0x3aa0ff,0x1b4a66);
+const grid = new THREE.GridHelper(40,40,0x3aa0ff,0x1b4a66);
 scene.add(grid);
 
+/* MODEL STORAGE */
+
 let currentModel = null;
+let pendingModel = null;
 
-const triEl = document.getElementById("triangle-count");
-const vertEl = document.getElementById("vertex-count");
-const status = document.getElementById("status-text");
-
-/* utilities */
+/* UTILITIES */
 
 function clearModel(){
+
 if(currentModel){
 scene.remove(currentModel);
-currentModel=null;
-}
-}
-
-function centerModel(obj){
-
-const box = new THREE.Box3().setFromObject(obj);
-const center = box.getCenter(new THREE.Vector3());
-
-obj.position.sub(center);
-
-const size = box.getSize(new THREE.Vector3()).length();
-const dist = size * 1.4;
-
-camera.position.set(dist,dist,dist);
-
-controls.target.set(0,0,0);
-controls.update();
+currentModel = null;
 }
 
-function applyMaterial(obj){
+}
+
+function updateStats(geometry){
+
+if(!geometry || !geometry.attributes?.position) return;
+
+const verts = geometry.attributes.position.count;
+const tris = Math.floor(verts/3);
+
+vertexCount.textContent = verts;
+triangleCount.textContent = tris;
+
+}
+
+function applyMaterial(object){
 
 const mat = new THREE.MeshStandardMaterial({
 color:0x4aa3ff,
-metalness:0.1,
+metalness:0.2,
 roughness:0.6
 });
 
-obj.traverse(child=>{
+object.traverse(child=>{
 
 if(child.isMesh){
 
 child.material = mat;
 
-if(child.geometry?.attributes?.position){
-
-const verts = child.geometry.attributes.position.count;
-vertEl.textContent = verts;
-triEl.textContent = Math.floor(verts/3);
-
+if(child.geometry){
+updateStats(child.geometry);
 }
 
 }
@@ -103,34 +107,51 @@ triEl.textContent = Math.floor(verts/3);
 
 }
 
-/* file upload */
+function centerModel(object){
 
-document.getElementById("model-upload").addEventListener("change",e=>{
+const box = new THREE.Box3().setFromObject(object);
+const center = box.getCenter(new THREE.Vector3());
+
+object.position.sub(center);
+
+const size = box.getSize(new THREE.Vector3()).length();
+const dist = size * 1.5;
+
+camera.position.set(dist,dist,dist);
+
+controls.target.set(0,0,0);
+controls.update();
+
+}
+
+/* FILE UPLOAD */
+
+uploadInput.addEventListener("change", e=>{
 
 const file = e.target.files[0];
 if(!file) return;
 
-clearModel();
+loadingText.style.display="block";
+viewBtn.disabled=true;
 
 const url = URL.createObjectURL(file);
 
+const ext = file.name.toLowerCase().split(".").pop();
+
 /* OBJ */
 
-if(file.name.toLowerCase().endsWith(".obj")){
+if(ext==="obj"){
 
 const loader = new OBJLoader();
 
-loader.load(url,obj=>{
+loader.load(url, object=>{
 
-applyMaterial(obj);
+applyMaterial(object);
 
-currentModel = obj;
+pendingModel = object;
 
-scene.add(obj);
-
-centerModel(obj);
-
-status.textContent=file.name+" loaded";
+loadingText.style.display="none";
+viewBtn.disabled=false;
 
 });
 
@@ -138,28 +159,21 @@ status.textContent=file.name+" loaded";
 
 /* STL */
 
-else if(file.name.toLowerCase().endsWith(".stl")){
+else if(ext==="stl"){
 
 const loader = new STLLoader();
 
-loader.load(url,geo=>{
+loader.load(url, geometry=>{
 
 const mat = new THREE.MeshStandardMaterial({color:0x4aa3ff});
+const mesh = new THREE.Mesh(geometry,mat);
 
-const mesh = new THREE.Mesh(geo,mat);
+updateStats(geometry);
 
-const verts = geo.attributes.position.count;
+pendingModel = mesh;
 
-vertEl.textContent=verts;
-triEl.textContent=Math.floor(verts/3);
-
-currentModel=mesh;
-
-scene.add(mesh);
-
-centerModel(mesh);
-
-status.textContent=file.name+" loaded";
+loadingText.style.display="none";
+viewBtn.disabled=false;
 
 });
 
@@ -167,21 +181,18 @@ status.textContent=file.name+" loaded";
 
 /* FBX */
 
-else if(file.name.toLowerCase().endsWith(".fbx")){
+else if(ext==="fbx"){
 
 const loader = new FBXLoader();
 
-loader.load(url,obj=>{
+loader.load(url, object=>{
 
-applyMaterial(obj);
+applyMaterial(object);
 
-currentModel=obj;
+pendingModel = object;
 
-scene.add(obj);
-
-centerModel(obj);
-
-status.textContent=file.name+" loaded";
+loadingText.style.display="none";
+viewBtn.disabled=false;
 
 });
 
@@ -189,23 +200,43 @@ status.textContent=file.name+" loaded";
 
 });
 
-/* wireframe */
+/* VIEW MODEL BUTTON */
 
-document.getElementById("wireframe-toggle").addEventListener("change",e=>{
+viewBtn.addEventListener("click",()=>{
+
+if(!pendingModel) return;
+
+clearModel();
+
+currentModel = pendingModel;
+
+scene.add(currentModel);
+
+centerModel(currentModel);
+
+pendingModel = null;
+
+viewBtn.disabled=true;
+
+});
+
+/* WIREFRAME */
+
+wireToggle.addEventListener("change", e=>{
 
 if(!currentModel) return;
 
 currentModel.traverse(child=>{
 
 if(child.material){
-child.material.wireframe=e.target.checked;
+child.material.wireframe = e.target.checked;
 }
 
 });
 
 });
 
-/* render loop */
+/* RENDER LOOP */
 
 function animate(){
 
@@ -219,14 +250,13 @@ renderer.render(scene,camera);
 
 animate();
 
-/* resize */
+/* RESIZE HANDLING */
 
-window.addEventListener("resize",()=>{
+window.addEventListener("resize", ()=>{
 
-camera.aspect=window.innerWidth/window.innerHeight;
-
+camera.aspect = viewport.clientWidth / viewport.clientHeight;
 camera.updateProjectionMatrix();
 
-renderer.setSize(window.innerWidth,window.innerHeight);
+renderer.setSize(viewport.clientWidth, viewport.clientHeight);
 
 });
