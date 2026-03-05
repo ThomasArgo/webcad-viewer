@@ -4,7 +4,7 @@ import { OBJLoader } from "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/j
 import { STLLoader } from "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/loaders/STLLoader.js";
 import { FBXLoader } from "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/loaders/FBXLoader.js";
 
-/* UI ELEMENTS */
+/* UI */
 
 const canvas = document.getElementById("viewer-canvas");
 const viewport = document.querySelector(".viewport");
@@ -13,15 +13,15 @@ const uploadInput = document.getElementById("model-upload");
 const viewBtn = document.getElementById("view-model-btn");
 const loadingText = document.getElementById("loading-text");
 
-const triangleCount = document.getElementById("triangle-count");
-const vertexCount = document.getElementById("vertex-count");
+const triEl = document.getElementById("triangle-count");
+const vertEl = document.getElementById("vertex-count");
 
 const wireToggle = document.getElementById("wireframe-toggle");
 
-/* THREE SCENE */
+/* SCENE */
 
 const scene = new THREE.Scene();
-scene.background = new THREE.Color(0x000000);
+scene.background = new THREE.Color(0x0b2a3a);
 
 const camera = new THREE.PerspectiveCamera(
 75,
@@ -42,7 +42,7 @@ renderer.setSize(viewport.clientWidth, viewport.clientHeight);
 const controls = new OrbitControls(camera, renderer.domElement);
 controls.enableDamping = true;
 
-/* LIGHTING */
+/* LIGHTS */
 
 scene.add(new THREE.AmbientLight(0xffffff,0.7));
 
@@ -55,37 +55,35 @@ scene.add(light);
 const grid = new THREE.GridHelper(40,40,0x3aa0ff,0x1b4a66);
 scene.add(grid);
 
-/* MODEL STORAGE */
+let currentModel=null;
+let pendingModel=null;
 
-let currentModel = null;
-let pendingModel = null;
-
-/* UTILITIES */
+/* HELPERS */
 
 function clearModel(){
 
 if(currentModel){
 scene.remove(currentModel);
-currentModel = null;
+currentModel=null;
 }
 
 }
 
 function updateStats(geometry){
 
-if(!geometry || !geometry.attributes?.position) return;
+if(!geometry?.attributes?.position) return;
 
 const verts = geometry.attributes.position.count;
 const tris = Math.floor(verts/3);
 
-vertexCount.textContent = verts;
-triangleCount.textContent = tris;
+vertEl.textContent=verts;
+triEl.textContent=tris;
 
 }
 
 function applyMaterial(object){
 
-const mat = new THREE.MeshStandardMaterial({
+const mat=new THREE.MeshStandardMaterial({
 color:0x4aa3ff,
 metalness:0.2,
 roughness:0.6
@@ -95,7 +93,7 @@ object.traverse(child=>{
 
 if(child.isMesh){
 
-child.material = mat;
+child.material=mat;
 
 if(child.geometry){
 updateStats(child.geometry);
@@ -109,13 +107,13 @@ updateStats(child.geometry);
 
 function centerModel(object){
 
-const box = new THREE.Box3().setFromObject(object);
-const center = box.getCenter(new THREE.Vector3());
+const box=new THREE.Box3().setFromObject(object);
+const center=box.getCenter(new THREE.Vector3());
 
 object.position.sub(center);
 
-const size = box.getSize(new THREE.Vector3()).length();
-const dist = size * 1.5;
+const size=box.getSize(new THREE.Vector3()).length();
+const dist=size*1.5;
 
 camera.position.set(dist,dist,dist);
 
@@ -126,29 +124,28 @@ controls.update();
 
 /* FILE UPLOAD */
 
-uploadInput.addEventListener("change", e=>{
+uploadInput.addEventListener("change",e=>{
 
-const file = e.target.files[0];
+const file=e.target.files[0];
 if(!file) return;
 
 loadingText.style.display="block";
 viewBtn.disabled=true;
 
-const url = URL.createObjectURL(file);
-
-const ext = file.name.toLowerCase().split(".").pop();
+const url=URL.createObjectURL(file);
+const ext=file.name.toLowerCase().split(".").pop();
 
 /* OBJ */
 
 if(ext==="obj"){
 
-const loader = new OBJLoader();
+const loader=new OBJLoader();
 
-loader.load(url, object=>{
+loader.load(url,obj=>{
 
-applyMaterial(object);
+applyMaterial(obj);
 
-pendingModel = object;
+pendingModel=obj;
 
 loadingText.style.display="none";
 viewBtn.disabled=false;
@@ -161,16 +158,16 @@ viewBtn.disabled=false;
 
 else if(ext==="stl"){
 
-const loader = new STLLoader();
+const loader=new STLLoader();
 
-loader.load(url, geometry=>{
+loader.load(url,geo=>{
 
-const mat = new THREE.MeshStandardMaterial({color:0x4aa3ff});
-const mesh = new THREE.Mesh(geometry,mat);
+const mat=new THREE.MeshStandardMaterial({color:0x4aa3ff});
+const mesh=new THREE.Mesh(geo,mat);
 
-updateStats(geometry);
+updateStats(geo);
 
-pendingModel = mesh;
+pendingModel=mesh;
 
 loadingText.style.display="none";
 viewBtn.disabled=false;
@@ -183,13 +180,13 @@ viewBtn.disabled=false;
 
 else if(ext==="fbx"){
 
-const loader = new FBXLoader();
+const loader=new FBXLoader();
 
-loader.load(url, object=>{
+loader.load(url,obj=>{
 
-applyMaterial(object);
+applyMaterial(obj);
 
-pendingModel = object;
+pendingModel=obj;
 
 loadingText.style.display="none";
 viewBtn.disabled=false;
@@ -208,13 +205,13 @@ if(!pendingModel) return;
 
 clearModel();
 
-currentModel = pendingModel;
+currentModel=pendingModel;
 
 scene.add(currentModel);
 
 centerModel(currentModel);
 
-pendingModel = null;
+pendingModel=null;
 
 viewBtn.disabled=true;
 
@@ -222,14 +219,14 @@ viewBtn.disabled=true;
 
 /* WIREFRAME */
 
-wireToggle.addEventListener("change", e=>{
+wireToggle.addEventListener("change",e=>{
 
 if(!currentModel) return;
 
 currentModel.traverse(child=>{
 
 if(child.material){
-child.material.wireframe = e.target.checked;
+child.material.wireframe=e.target.checked;
 }
 
 });
@@ -250,13 +247,13 @@ renderer.render(scene,camera);
 
 animate();
 
-/* RESIZE HANDLING */
+/* RESIZE */
 
-window.addEventListener("resize", ()=>{
+window.addEventListener("resize",()=>{
 
-camera.aspect = viewport.clientWidth / viewport.clientHeight;
+camera.aspect=viewport.clientWidth/viewport.clientHeight;
 camera.updateProjectionMatrix();
 
-renderer.setSize(viewport.clientWidth, viewport.clientHeight);
+renderer.setSize(viewport.clientWidth,viewport.clientHeight);
 
 });
