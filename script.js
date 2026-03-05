@@ -15,16 +15,19 @@ const loadingText = document.getElementById("loading-text");
 
 const triEl = document.getElementById("triangle-count");
 const vertEl = document.getElementById("vertex-count");
+const meshEl = document.getElementById("mesh-count");
 
 const wireToggle = document.getElementById("wireframe-toggle");
+const textureToggle = document.getElementById("texture-toggle");
 const gridToggle = document.getElementById("grid-toggle");
 const autoRotateToggle = document.getElementById("auto-rotate");
 
 const rotateSpeedSlider = document.getElementById("rotate-speed");
+
 const resetModelRotationBtn = document.getElementById("reset-model-rotation");
 const resetCameraBtn = document.getElementById("reset-view");
 
-/* SCENE */
+/* THREE */
 
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x0b2a3a);
@@ -44,15 +47,12 @@ antialias:true
 });
 
 renderer.setSize(viewport.clientWidth, viewport.clientHeight);
-
-/* important for textures */
-
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 
 const controls = new OrbitControls(camera, renderer.domElement);
 controls.enableDamping = true;
 
-/* LIGHTING */
+/* lights */
 
 scene.add(new THREE.AmbientLight(0xffffff,0.8));
 
@@ -60,82 +60,65 @@ const light = new THREE.DirectionalLight(0xffffff,1);
 light.position.set(5,10,5);
 scene.add(light);
 
-/* GRID */
+/* grid */
 
 const grid = new THREE.GridHelper(40,40,0x3aa0ff,0x1b4a66);
 scene.add(grid);
 
-/* MODEL STORAGE */
+/* storage */
 
 let currentModel = null;
 let pendingModel = null;
 
-/* CLEAR MODEL */
+let originalRotation = new THREE.Euler();
+let originalMaterials = new Map();
+
+/* clear */
 
 function clearModel(){
 
 if(currentModel){
 scene.remove(currentModel);
-currentModel = null;
+currentModel=null;
 }
 
 }
 
-/* STATS */
+/* stats */
 
 function computeStats(object){
 
-let triangles = 0;
-let vertices = 0;
+let triangles=0;
+let vertices=0;
+let meshes=0;
 
 object.traverse(child=>{
 
 if(child.isMesh && child.geometry){
+
+meshes++;
 
 const geo = child.geometry;
 
 vertices += geo.attributes.position.count;
 
 if(geo.index){
-triangles += geo.index.count / 3;
+triangles += geo.index.count/3;
 }else{
-triangles += geo.attributes.position.count / 3;
+triangles += geo.attributes.position.count/3;
 }
 
 }
 
 });
 
-triEl.textContent = Math.floor(triangles).toLocaleString();
-vertEl.textContent = Math.floor(vertices).toLocaleString();
+triEl.textContent = triangles.toLocaleString();
+vertEl.textContent = vertices.toLocaleString();
+meshEl.textContent = meshes;
 
 }
 
-/* APPLY MATERIAL ONLY IF NEEDED */
-
-function ensureMaterial(obj){
-
-obj.traverse(child=>{
-
-if(child.isMesh){
-
-if(!child.material){
-
-child.material = new THREE.MeshStandardMaterial({
-color:0x4aa3ff,
-metalness:0.2,
-roughness:0.6
-});
-
-}
-
-}
-
-});
-
-}
-
-/* CENTER + SCALE */
+/* center */
 
 function centerModel(obj){
 
@@ -146,7 +129,7 @@ const center = box.getCenter(new THREE.Vector3());
 obj.position.sub(center);
 
 const maxDim = Math.max(size.x,size.y,size.z);
-const scale = 6 / maxDim;
+const scale = 6/maxDim;
 
 obj.scale.setScalar(scale);
 
@@ -156,18 +139,18 @@ controls.update();
 
 }
 
-/* FILE UPLOAD */
+/* upload */
 
 uploadInput.addEventListener("change",e=>{
 
-const file = e.target.files[0];
+const file=e.target.files[0];
 if(!file) return;
 
 loadingText.style.display="block";
 viewBtn.disabled=true;
 
-const url = URL.createObjectURL(file);
-const ext = file.name.toLowerCase().split(".").pop();
+const url=URL.createObjectURL(file);
+const ext=file.name.split(".").pop().toLowerCase();
 
 /* OBJ */
 
@@ -175,9 +158,7 @@ if(ext==="obj"){
 
 new OBJLoader().load(url,obj=>{
 
-ensureMaterial(obj);
-
-pendingModel = obj;
+pendingModel=obj;
 
 computeStats(obj);
 
@@ -190,16 +171,16 @@ viewBtn.disabled=false;
 
 /* STL */
 
-else if(ext==="stl"){
+if(ext==="stl"){
 
 new STLLoader().load(url,geo=>{
 
-const mesh = new THREE.Mesh(
+const mesh=new THREE.Mesh(
 geo,
 new THREE.MeshStandardMaterial({color:0x4aa3ff})
 );
 
-pendingModel = mesh;
+pendingModel=mesh;
 
 computeStats(mesh);
 
@@ -212,13 +193,11 @@ viewBtn.disabled=false;
 
 /* FBX */
 
-else if(ext==="fbx"){
+if(ext==="fbx"){
 
 new FBXLoader().load(url,obj=>{
 
-ensureMaterial(obj);
-
-pendingModel = obj;
+pendingModel=obj;
 
 computeStats(obj);
 
@@ -231,7 +210,7 @@ viewBtn.disabled=false;
 
 });
 
-/* VIEW MODEL */
+/* view model */
 
 viewBtn.addEventListener("click",()=>{
 
@@ -239,11 +218,21 @@ if(!pendingModel) return;
 
 clearModel();
 
-currentModel = pendingModel;
+currentModel=pendingModel;
 
 scene.add(currentModel);
 
 centerModel(currentModel);
+
+originalRotation.copy(currentModel.rotation);
+
+originalMaterials.clear();
+
+currentModel.traverse(child=>{
+if(child.isMesh){
+originalMaterials.set(child,child.material);
+}
+});
 
 pendingModel=null;
 
@@ -251,7 +240,7 @@ viewBtn.disabled=true;
 
 });
 
-/* WIREFRAME */
+/* wireframe */
 
 wireToggle.addEventListener("change",e=>{
 
@@ -265,13 +254,43 @@ child.material.wireframe=e.target.checked;
 
 });
 
-/* GRID */
+/* texture toggle */
+
+textureToggle.addEventListener("change",e=>{
+
+if(!currentModel) return;
+
+currentModel.traverse(child=>{
+
+if(child.isMesh){
+
+if(e.target.checked){
+
+child.material = originalMaterials.get(child);
+
+}else{
+
+child.material = new THREE.MeshStandardMaterial({
+color:0x4aa3ff,
+metalness:0.2,
+roughness:0.6
+});
+
+}
+
+}
+
+});
+
+});
+
+/* grid */
 
 gridToggle.addEventListener("change",e=>{
 grid.visible=e.target.checked;
 });
 
-/* RESET CAMERA */
+/* reset camera */
 
 resetCameraBtn.addEventListener("click",()=>{
 
@@ -281,17 +300,17 @@ controls.update();
 
 });
 
-/* RESET MODEL ROTATION */
+/* reset rotation */
 
 resetModelRotationBtn.addEventListener("click",()=>{
 
 if(!currentModel) return;
 
-currentModel.rotation.set(0,0,0);
+currentModel.rotation.copy(originalRotation);
 
 });
 
-/* RENDER LOOP */
+/* render */
 
 function animate(){
 
@@ -301,9 +320,9 @@ controls.update();
 
 if(autoRotateToggle.checked && currentModel){
 
-const speed = parseFloat(rotateSpeedSlider.value);
+const speed=parseFloat(rotateSpeedSlider.value);
 
-currentModel.rotation.y += speed;
+currentModel.rotation.y+=speed;
 
 }
 
@@ -313,7 +332,7 @@ renderer.render(scene,camera);
 
 animate();
 
-/* RESIZE */
+/* resize */
 
 window.addEventListener("resize",()=>{
 
