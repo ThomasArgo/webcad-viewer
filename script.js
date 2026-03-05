@@ -42,7 +42,7 @@ viewport.clientWidth / viewport.clientHeight,
 10000
 );
 
-camera.position.set(120,80,120);
+camera.position.set(50,40,50);
 
 /* RENDERER */
 
@@ -64,21 +64,18 @@ controls.enableDamping = true;
 scene.add(new THREE.AmbientLight(0xffffff,0.9));
 
 const light = new THREE.DirectionalLight(0xffffff,1);
-light.position.set(10,20,10);
+light.position.set(20,40,20);
 scene.add(light);
 
 /* GRID */
 
-let gridSize = 400;
-let gridDivisions = 40;
-
-let grid = new THREE.GridHelper(gridSize,gridDivisions,0x3aa0ff,0x1b4a66);
+let grid = new THREE.GridHelper(200,40,0x3aa0ff,0x1b4a66);
 scene.add(grid);
 
-/* MODEL PIVOT */
+/* MODEL ROOT */
 
-const modelPivot = new THREE.Group();
-scene.add(modelPivot);
+const modelRoot = new THREE.Group();
+scene.add(modelRoot);
 
 let currentModel = null;
 let pendingModel = null;
@@ -120,15 +117,15 @@ meshEl.textContent = meshes;
 
 }
 
-/* CENTER MODEL */
+/* NORMALIZE + CENTER MODEL */
 
 function centerModel(){
 
 if(!currentModel) return;
 
-modelPivot.updateMatrixWorld(true);
+modelRoot.updateMatrixWorld(true);
 
-const box = new THREE.Box3().setFromObject(modelPivot);
+const box = new THREE.Box3().setFromObject(modelRoot);
 
 const center = new THREE.Vector3();
 const size = new THREE.Vector3();
@@ -138,30 +135,36 @@ box.getSize(size);
 
 /* move pivot */
 
-modelPivot.position.sub(center);
+modelRoot.position.sub(center);
 
-/* scale grid */
+/* normalize scale */
 
 const maxDim = Math.max(size.x,size.y,size.z);
 
-scene.remove(grid);
+const targetSize = 50;  // desired scene size
 
-gridSize = maxDim * 4;
+const scale = targetSize / maxDim;
 
-grid = new THREE.GridHelper(gridSize,40,0x3aa0ff,0x1b4a66);
+modelRoot.scale.setScalar(scale);
 
-grid.position.y = box.min.y - center.y;
+/* recalc box after scaling */
 
-scene.add(grid);
+modelRoot.updateMatrixWorld(true);
+
+const newBox = new THREE.Box3().setFromObject(modelRoot);
+const newSize = new THREE.Vector3();
+
+newBox.getSize(newSize);
+
+/* place grid */
+
+grid.position.y = newBox.min.y;
 
 /* frame camera */
 
-const fov = camera.fov * (Math.PI/180);
+const distance = newSize.length() * 1.2;
 
-let distance = maxDim / (2 * Math.tan(fov/2));
-distance *= 1.8;
-
-camera.position.set(distance,distance*0.7,distance);
+camera.position.set(distance,distance*0.6,distance);
 
 controls.target.set(0,0,0);
 controls.update();
@@ -245,11 +248,11 @@ viewBtn.addEventListener("click",()=>{
 
 if(!pendingModel) return;
 
-modelPivot.clear();
+modelRoot.clear();
 
 currentModel = pendingModel;
 
-modelPivot.add(currentModel);
+modelRoot.add(currentModel);
 
 centerModel();
 
