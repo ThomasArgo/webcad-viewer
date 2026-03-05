@@ -28,7 +28,7 @@ const centerBtn = document.getElementById("center-model");
 const resetRotationBtn = document.getElementById("reset-model-rotation");
 const resetCameraBtn = document.getElementById("reset-view");
 
-/* THREE */
+/* THREE SCENE */
 
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x0b2a3a);
@@ -51,7 +51,7 @@ renderer.outputColorSpace = THREE.SRGBColorSpace;
 const controls = new OrbitControls(camera, renderer.domElement);
 controls.enableDamping = true;
 
-/* lights */
+/* LIGHTS */
 
 scene.add(new THREE.AmbientLight(0xffffff,0.9));
 
@@ -59,12 +59,12 @@ const light = new THREE.DirectionalLight(0xffffff,1);
 light.position.set(10,20,10);
 scene.add(light);
 
-/* grid */
+/* GRID */
 
 const grid = new THREE.GridHelper(200,200,0x3aa0ff,0x1b4a66);
 scene.add(grid);
 
-/* storage */
+/* MODEL STORAGE */
 
 let currentModel=null;
 let pendingModel=null;
@@ -72,7 +72,7 @@ let pendingModel=null;
 let originalRotation=new THREE.Euler();
 let originalMaterials=new Map();
 
-/* stats */
+/* STATS */
 
 function computeStats(object){
 
@@ -106,43 +106,43 @@ meshEl.textContent=meshes;
 
 }
 
-/* ZOOM TO FIT MODEL */
+/* CENTER MODEL */
 
-function frameModel(model){
+function centerModel(model){
 
 const box = new THREE.Box3().setFromObject(model);
-
-const size = new THREE.Vector3();
-box.getSize(size);
 
 const center = new THREE.Vector3();
 box.getCenter(center);
 
-/* move grid under model */
+const size = new THREE.Vector3();
+box.getSize(size);
 
-grid.position.set(center.x, box.min.y, center.z);
+/* move model so center = origin */
+
+model.position.x -= center.x;
+model.position.y -= center.y;
+model.position.z -= center.z;
+
+/* place grid under model */
+
+grid.position.y = box.min.y - center.y;
 
 /* aim camera */
 
-controls.target.copy(center);
+controls.target.set(0,0,0);
 
-/* calculate best camera distance */
+/* camera distance */
 
-const maxDim = Math.max(size.x, size.y, size.z);
+const maxDim = Math.max(size.x,size.y,size.z);
 
-const fov = camera.fov * (Math.PI / 180);
+const fov = camera.fov * (Math.PI/180);
 
-let distance = maxDim / (2 * Math.tan(fov / 2));
+let distance = maxDim / (2 * Math.tan(fov/2));
 
 distance *= 1.6;
 
-/* place camera */
-
-camera.position.set(
-center.x + distance,
-center.y + distance * 0.6,
-center.z + distance
-);
+camera.position.set(distance,distance*0.7,distance);
 
 camera.near = distance / 100;
 camera.far = distance * 100;
@@ -152,7 +152,7 @@ controls.update();
 
 }
 
-/* upload */
+/* LOAD MODEL */
 
 uploadInput.addEventListener("change",e=>{
 
@@ -223,7 +223,7 @@ viewBtn.disabled=false;
 
 });
 
-/* view model */
+/* VIEW MODEL */
 
 viewBtn.addEventListener("click",()=>{
 
@@ -237,7 +237,7 @@ currentModel=pendingModel;
 
 scene.add(currentModel);
 
-frameModel(currentModel);
+centerModel(currentModel);
 
 originalRotation.copy(currentModel.rotation);
 
@@ -255,17 +255,17 @@ viewBtn.disabled=true;
 
 });
 
-/* center button */
+/* CENTER BUTTON */
 
 centerBtn.addEventListener("click",()=>{
 
 if(!currentModel) return;
 
-frameModel(currentModel);
+centerModel(currentModel);
 
 });
 
-/* wireframe */
+/* WIREFRAME */
 
 wireToggle.addEventListener("change",e=>{
 
@@ -279,7 +279,7 @@ child.material.wireframe=e.target.checked;
 
 });
 
-/* texture toggle */
+/* TEXTURE */
 
 textureToggle.addEventListener("change",e=>{
 
@@ -305,23 +305,23 @@ roughness:0.6
 
 });
 
-/* grid toggle */
+/* GRID */
 
 gridToggle.addEventListener("change",e=>{
 grid.visible=e.target.checked;
 });
 
-/* reset camera */
+/* RESET CAMERA */
 
 resetCameraBtn.addEventListener("click",()=>{
 
 if(!currentModel) return;
 
-frameModel(currentModel);
+centerModel(currentModel);
 
 });
 
-/* reset rotation */
+/* RESET ROTATION */
 
 resetRotationBtn.addEventListener("click",()=>{
 
@@ -331,7 +331,7 @@ currentModel.rotation.copy(originalRotation);
 
 });
 
-/* render */
+/* RENDER LOOP */
 
 function animate(){
 
@@ -353,7 +353,7 @@ renderer.render(scene,camera);
 
 animate();
 
-/* resize */
+/* RESIZE */
 
 window.addEventListener("resize",()=>{
 
