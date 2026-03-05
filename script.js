@@ -118,20 +118,33 @@ meshEl.textContent = meshes;
 
 }
 
-/* center */
+/* STRONG CENTERING FUNCTION */
 
-function centerModel(obj){
+function centerModel(model){
 
-const box = new THREE.Box3().setFromObject(obj);
-const size = box.getSize(new THREE.Vector3());
-const center = box.getCenter(new THREE.Vector3());
+/* compute bounding box */
 
-obj.position.sub(center);
+const box = new THREE.Box3().setFromObject(model);
+
+const center = new THREE.Vector3();
+box.getCenter(center);
+
+/* shift whole model */
+
+model.position.sub(center);
+
+/* normalize scale */
+
+const size = new THREE.Vector3();
+box.getSize(size);
 
 const maxDim = Math.max(size.x,size.y,size.z);
-const scale = 6/maxDim;
 
-obj.scale.setScalar(scale);
+const scale = 6 / maxDim;
+
+model.scale.setScalar(scale);
+
+/* reset camera */
 
 camera.position.set(8,6,8);
 controls.target.set(0,0,0);
@@ -222,9 +235,15 @@ currentModel=pendingModel;
 
 scene.add(currentModel);
 
+/* strong centering */
+
 centerModel(currentModel);
 
+/* store rotation */
+
 originalRotation.copy(currentModel.rotation);
+
+/* store materials */
 
 originalMaterials.clear();
 
