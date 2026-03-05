@@ -66,6 +66,9 @@ scene.add(grid);
 
 /* storage */
 
+let modelPivot = new THREE.Group();
+scene.add(modelPivot);
+
 let currentModel=null;
 let pendingModel=null;
 
@@ -106,41 +109,32 @@ meshEl.textContent=meshes;
 
 }
 
-/* FRAME MODEL (CORRECT GRID + CAMERA ALIGNMENT) */
+/* CENTER MODEL USING PIVOT */
 
-function frameModel(model){
+function centerModel(model){
 
-const box=new THREE.Box3().setFromObject(model);
+const box = new THREE.Box3().setFromObject(model);
 
-const center=new THREE.Vector3();
+const center = new THREE.Vector3();
 box.getCenter(center);
 
-const size=new THREE.Vector3();
+model.position.sub(center);
+
+/* camera framing */
+
+const size = new THREE.Vector3();
 box.getSize(size);
 
-const bottom=box.min.y;
+const maxDim = Math.max(size.x,size.y,size.z);
 
-/* place grid under model */
+const distance = maxDim * 1.8;
 
-grid.position.set(center.x,bottom,center.z);
+camera.position.set(distance, distance*0.7, distance);
 
-/* aim camera */
-
-controls.target.copy(center);
-
-/* camera distance based on size */
-
-const maxDim=Math.max(size.x,size.y,size.z);
-
-const distance=maxDim*1.8;
-
-camera.position.set(
-center.x+distance,
-center.y+distance*0.7,
-center.z+distance
-);
-
+controls.target.set(0,0,0);
 controls.update();
+
+grid.position.set(0,box.min.y - center.y,0);
 
 }
 
@@ -221,17 +215,13 @@ viewBtn.addEventListener("click",()=>{
 
 if(!pendingModel) return;
 
-if(currentModel){
-scene.remove(currentModel);
-}
+modelPivot.clear();
 
 currentModel=pendingModel;
 
-scene.add(currentModel);
+modelPivot.add(currentModel);
 
-/* frame model */
-
-frameModel(currentModel);
+centerModel(currentModel);
 
 originalRotation.copy(currentModel.rotation);
 
@@ -249,13 +239,13 @@ viewBtn.disabled=true;
 
 });
 
-/* center model button */
+/* center button */
 
 centerBtn.addEventListener("click",()=>{
 
 if(!currentModel) return;
 
-frameModel(currentModel);
+centerModel(currentModel);
 
 });
 
@@ -299,7 +289,7 @@ roughness:0.6
 
 });
 
-/* grid toggle */
+/* grid */
 
 gridToggle.addEventListener("change",e=>{
 grid.visible=e.target.checked;
@@ -311,7 +301,7 @@ resetCameraBtn.addEventListener("click",()=>{
 
 if(!currentModel) return;
 
-frameModel(currentModel);
+centerModel(currentModel);
 
 });
 
