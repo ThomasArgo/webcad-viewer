@@ -4,9 +4,20 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
 <title>WebCAD Viewer</title>
 
 <link rel="stylesheet" href="style.css">
+
+<!-- Three.js module map -->
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+    "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+  }
+}
+</script>
 
 </head>
 
@@ -16,11 +27,13 @@
 
 <aside class="sidebar">
 
+<div class="bubble-layer"></div>
+
 <h1>WebCAD Viewer</h1>
 
 <p class="subtitle">Upload OBJ / STL / FBX files</p>
 
-<label for="model-upload">Choose model</label>
+<label>Choose model</label>
 <input id="model-upload" type="file" accept=".obj,.stl,.fbx">
 
 <p id="loading-text">Loading model...</p>
