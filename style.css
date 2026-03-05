@@ -1,3 +1,5 @@
+/* page */
+
 body{
 margin:0;
 font-family:Arial, sans-serif;
@@ -6,6 +8,8 @@ overflow:hidden;
 background:#071b26;
 color:#e6f4ff;
 }
+
+/* layout */
 
 .app-shell{
 display:flex;
@@ -23,16 +27,17 @@ background:#061821;
 border-right:1px solid rgba(90,180,255,0.2);
 }
 
-/* bubble layer behind UI */
+/* bubble animation layer (behind everything) */
 
-.sidebar::before{
+.bubble-layer{
 
-content:"";
 position:absolute;
 top:0;
 left:0;
+
 width:100%;
 height:100%;
+
 z-index:0;
 
 background:
@@ -41,22 +46,33 @@ radial-gradient(circle at 60% 70%,rgba(120,200,255,0.15) 2px,transparent 3px),
 radial-gradient(circle at 40% 80%,rgba(120,200,255,0.2) 3px,transparent 4px),
 radial-gradient(circle at 80% 40%,rgba(120,200,255,0.12) 2px,transparent 3px);
 
-animation:bubbleRise 20s linear infinite;
+animation:bubbleRise 22s linear infinite;
+
+pointer-events:none;
 }
 
-/* ensure UI is above bubbles */
+/* ensure sidebar UI is above bubbles */
 
-.sidebar > *{
+.sidebar > *:not(.bubble-layer){
 position:relative;
 z-index:1;
 }
 
+/* bubble motion */
+
 @keyframes bubbleRise{
 
-0%{transform:translateY(0);}
-100%{transform:translateY(-60%);}
+0%{
+transform:translateY(0);
+}
+
+100%{
+transform:translateY(-60%);
+}
 
 }
+
+/* sidebar text */
 
 .sidebar h1{
 margin-top:0;
@@ -70,9 +86,13 @@ font-size:14px;
 margin-bottom:20px;
 }
 
+/* file input */
+
 input[type="file"]{
 margin-bottom:10px;
 }
+
+/* loading text */
 
 #loading-text{
 display:none;
@@ -80,6 +100,8 @@ margin-top:6px;
 font-size:13px;
 color:#9fb8c7;
 }
+
+/* buttons */
 
 button{
 margin-top:10px;
@@ -102,6 +124,8 @@ button:hover:not(:disabled){
 background:#5cb6ff;
 }
 
+/* toggle spacing */
+
 .toggle-row{
 display:flex;
 align-items:center;
@@ -109,6 +133,8 @@ gap:8px;
 margin-top:16px;
 margin-bottom:18px;
 }
+
+/* stats card */
 
 .stats-card{
 background:rgba(20,55,75,0.4);
@@ -123,7 +149,10 @@ border:1px solid rgba(90,180,255,0.15);
 flex:1;
 background:#0b2a3a;
 overflow:hidden;
+position:relative;
 }
+
+/* canvas */
 
 canvas{
 width:100%;
