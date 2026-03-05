@@ -4,7 +4,7 @@ import { OBJLoader } from "three/addons/loaders/OBJLoader.js";
 import { STLLoader } from "three/addons/loaders/STLLoader.js";
 import { FBXLoader } from "three/addons/loaders/FBXLoader.js";
 
-/* UI */
+/* DOM */
 
 const canvas = document.getElementById("viewer-canvas");
 const viewport = document.querySelector(".viewport");
@@ -28,10 +28,12 @@ const centerBtn = document.getElementById("center-model");
 const resetRotationBtn = document.getElementById("reset-model-rotation");
 const resetCameraBtn = document.getElementById("reset-view");
 
-/* THREE SCENE */
+/* SCENE */
 
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x0b2a3a);
+
+/* CAMERA */
 
 const camera = new THREE.PerspectiveCamera(
 75,
@@ -40,6 +42,8 @@ viewport.clientWidth / viewport.clientHeight,
 10000
 );
 
+/* RENDERER */
+
 const renderer = new THREE.WebGLRenderer({
 canvas,
 antialias:true
@@ -47,6 +51,8 @@ antialias:true
 
 renderer.setSize(viewport.clientWidth, viewport.clientHeight);
 renderer.outputColorSpace = THREE.SRGBColorSpace;
+
+/* CONTROLS */
 
 const controls = new OrbitControls(camera, renderer.domElement);
 controls.enableDamping = true;
@@ -64,21 +70,24 @@ scene.add(light);
 const grid = new THREE.GridHelper(200,200,0x3aa0ff,0x1b4a66);
 scene.add(grid);
 
-/* MODEL STORAGE */
+/* MODEL ROOT */
 
-let currentModel=null;
-let pendingModel=null;
+const modelRoot = new THREE.Group();
+scene.add(modelRoot);
 
-let originalRotation=new THREE.Euler();
-let originalMaterials=new Map();
+let currentModel = null;
+let pendingModel = null;
 
-/* STATS */
+let originalRotation = new THREE.Euler();
+let originalMaterials = new Map();
+
+/* MODEL STATS */
 
 function computeStats(object){
 
-let triangles=0;
-let vertices=0;
-let meshes=0;
+let triangles = 0;
+let vertices = 0;
+let meshes = 0;
 
 object.traverse(child=>{
 
@@ -86,23 +95,23 @@ if(child.isMesh && child.geometry){
 
 meshes++;
 
-const geo=child.geometry;
+const geo = child.geometry;
 
-vertices+=geo.attributes.position.count;
+vertices += geo.attributes.position.count;
 
 if(geo.index){
-triangles+=geo.index.count/3;
+triangles += geo.index.count/3;
 }else{
-triangles+=geo.attributes.position.count/3;
+triangles += geo.attributes.position.count/3;
 }
 
 }
 
 });
 
-triEl.textContent=triangles.toLocaleString();
-vertEl.textContent=vertices.toLocaleString();
-meshEl.textContent=meshes;
+triEl.textContent = triangles.toLocaleString();
+vertEl.textContent = vertices.toLocaleString();
+meshEl.textContent = meshes;
 
 }
 
@@ -115,55 +124,36 @@ const box = new THREE.Box3().setFromObject(model);
 const center = new THREE.Vector3();
 box.getCenter(center);
 
+model.position.sub(center);
+
+/* camera framing */
+
 const size = new THREE.Vector3();
 box.getSize(size);
 
-/* move model so center = origin */
-
-model.position.x -= center.x;
-model.position.y -= center.y;
-model.position.z -= center.z;
-
-/* place grid under model */
-
-grid.position.y = box.min.y - center.y;
-
-/* aim camera */
-
-controls.target.set(0,0,0);
-
-/* camera distance */
-
 const maxDim = Math.max(size.x,size.y,size.z);
 
-const fov = camera.fov * (Math.PI/180);
-
-let distance = maxDim / (2 * Math.tan(fov/2));
-
-distance *= 1.6;
+const distance = maxDim * 2;
 
 camera.position.set(distance,distance*0.7,distance);
 
-camera.near = distance / 100;
-camera.far = distance * 100;
-camera.updateProjectionMatrix();
-
+controls.target.set(0,0,0);
 controls.update();
 
 }
 
-/* LOAD MODEL */
+/* LOAD FILE */
 
 uploadInput.addEventListener("change",e=>{
 
-const file=e.target.files[0];
+const file = e.target.files[0];
 if(!file) return;
 
-loadingText.style.display="block";
-viewBtn.disabled=true;
+loadingText.style.display = "block";
+viewBtn.disabled = true;
 
-const url=URL.createObjectURL(file);
-const ext=file.name.split(".").pop().toLowerCase();
+const url = URL.createObjectURL(file);
+const ext = file.name.split(".").pop().toLowerCase();
 
 /* OBJ */
 
@@ -171,7 +161,7 @@ if(ext==="obj"){
 
 new OBJLoader().load(url,obj=>{
 
-pendingModel=obj;
+pendingModel = obj;
 
 computeStats(obj);
 
@@ -188,12 +178,12 @@ if(ext==="stl"){
 
 new STLLoader().load(url,geo=>{
 
-const mesh=new THREE.Mesh(
+const mesh = new THREE.Mesh(
 geo,
 new THREE.MeshStandardMaterial({color:0x4aa3ff})
 );
 
-pendingModel=mesh;
+pendingModel = mesh;
 
 computeStats(mesh);
 
@@ -210,7 +200,7 @@ if(ext==="fbx"){
 
 new FBXLoader().load(url,obj=>{
 
-pendingModel=obj;
+pendingModel = obj;
 
 computeStats(obj);
 
@@ -229,13 +219,11 @@ viewBtn.addEventListener("click",()=>{
 
 if(!pendingModel) return;
 
-if(currentModel){
-scene.remove(currentModel);
-}
+modelRoot.clear();
 
-currentModel=pendingModel;
+currentModel = pendingModel;
 
-scene.add(currentModel);
+modelRoot.add(currentModel);
 
 centerModel(currentModel);
 
@@ -290,12 +278,10 @@ currentModel.traverse(child=>{
 if(child.isMesh){
 
 if(e.target.checked){
-child.material=originalMaterials.get(child);
+child.material = originalMaterials.get(child);
 }else{
-child.material=new THREE.MeshStandardMaterial({
-color:0x4aa3ff,
-metalness:0.2,
-roughness:0.6
+child.material = new THREE.MeshStandardMaterial({
+color:0x4aa3ff
 });
 }
 
@@ -308,7 +294,7 @@ roughness:0.6
 /* GRID */
 
 gridToggle.addEventListener("change",e=>{
-grid.visible=e.target.checked;
+grid.visible = e.target.checked;
 });
 
 /* RESET CAMERA */
@@ -341,9 +327,9 @@ controls.update();
 
 if(autoRotateToggle.checked && currentModel){
 
-const speed=parseFloat(rotateSpeedSlider.value);
+const speed = parseFloat(rotateSpeedSlider.value);
 
-currentModel.rotation.y+=speed;
+currentModel.rotation.y += speed;
 
 }
 
@@ -357,7 +343,7 @@ animate();
 
 window.addEventListener("resize",()=>{
 
-camera.aspect=viewport.clientWidth/viewport.clientHeight;
+camera.aspect = viewport.clientWidth / viewport.clientHeight;
 camera.updateProjectionMatrix();
 
 renderer.setSize(viewport.clientWidth,viewport.clientHeight);
