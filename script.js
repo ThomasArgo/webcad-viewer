@@ -42,7 +42,7 @@ viewport.clientWidth / viewport.clientHeight,
 10000
 );
 
-camera.position.set(50,40,50);
+camera.position.set(80,60,80);
 
 /* RENDERER */
 
@@ -69,7 +69,7 @@ scene.add(light);
 
 /* GRID */
 
-let grid = new THREE.GridHelper(200,40,0x3aa0ff,0x1b4a66);
+const grid = new THREE.GridHelper(200,40,0x3aa0ff,0x1b4a66);
 scene.add(grid);
 
 /* MODEL ROOT */
@@ -79,6 +79,9 @@ scene.add(modelRoot);
 
 let currentModel = null;
 let pendingModel = null;
+
+let modelCenter = new THREE.Vector3();
+let modelSize = new THREE.Vector3();
 
 let originalRotation = new THREE.Euler();
 let originalMaterials = new Map();
@@ -117,52 +120,40 @@ meshEl.textContent = meshes;
 
 }
 
-/* NORMALIZE + CENTER MODEL */
+/* SCALE + CENTER MODEL (ONLY ONCE) */
 
-function centerModel(){
-
-if(!currentModel) return;
+function prepareModel(){
 
 modelRoot.updateMatrixWorld(true);
 
 const box = new THREE.Box3().setFromObject(modelRoot);
 
-const center = new THREE.Vector3();
-const size = new THREE.Vector3();
+box.getCenter(modelCenter);
+box.getSize(modelSize);
 
-box.getCenter(center);
-box.getSize(size);
+/* center */
 
-/* move pivot */
-
-modelRoot.position.sub(center);
+modelRoot.position.sub(modelCenter);
 
 /* normalize scale */
 
-const maxDim = Math.max(size.x,size.y,size.z);
+const maxDim = Math.max(modelSize.x,modelSize.y,modelSize.z);
 
-const targetSize = 50;  // desired scene size
+const targetSize = 50;
 
 const scale = targetSize / maxDim;
 
 modelRoot.scale.setScalar(scale);
 
-/* recalc box after scaling */
+}
 
-modelRoot.updateMatrixWorld(true);
+/* FRAME CAMERA */
 
-const newBox = new THREE.Box3().setFromObject(modelRoot);
-const newSize = new THREE.Vector3();
+function frameCamera(){
 
-newBox.getSize(newSize);
+const maxDim = Math.max(modelSize.x,modelSize.y,modelSize.z);
 
-/* place grid */
-
-grid.position.y = newBox.min.y;
-
-/* frame camera */
-
-const distance = newSize.length() * 1.2;
+const distance = maxDim * 2;
 
 camera.position.set(distance,distance*0.6,distance);
 
@@ -254,7 +245,11 @@ currentModel = pendingModel;
 
 modelRoot.add(currentModel);
 
-centerModel();
+/* prepare once */
+
+prepareModel();
+
+frameCamera();
 
 originalRotation.copy(currentModel.rotation);
 
@@ -272,9 +267,26 @@ viewBtn.disabled=true;
 
 });
 
-/* CENTER BUTTON */
+/* CENTER MODEL */
 
-centerBtn.addEventListener("click",centerModel);
+centerBtn.addEventListener("click",()=>{
+
+if(!currentModel) return;
+
+modelRoot.position.set(0,0,0);
+frameCamera();
+
+});
+
+/* RESET CAMERA */
+
+resetCameraBtn.addEventListener("click",()=>{
+
+if(!currentModel) return;
+
+frameCamera();
+
+});
 
 /* WIREFRAME */
 
@@ -319,10 +331,6 @@ color:0x4aa3ff
 gridToggle.addEventListener("change",e=>{
 grid.visible = e.target.checked;
 });
-
-/* RESET CAMERA */
-
-resetCameraBtn.addEventListener("click",centerModel);
 
 /* RESET ROTATION */
 
