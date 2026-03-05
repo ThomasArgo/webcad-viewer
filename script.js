@@ -42,6 +42,8 @@ viewport.clientWidth / viewport.clientHeight,
 10000
 );
 
+camera.position.set(120,80,120);
+
 /* RENDERER */
 
 const renderer = new THREE.WebGLRenderer({
@@ -67,7 +69,10 @@ scene.add(light);
 
 /* GRID */
 
-const grid = new THREE.GridHelper(200,200,0x3aa0ff,0x1b4a66);
+let gridSize = 400;
+let gridDivisions = 40;
+
+let grid = new THREE.GridHelper(gridSize,gridDivisions,0x3aa0ff,0x1b4a66);
 scene.add(grid);
 
 /* MODEL PIVOT */
@@ -115,17 +120,13 @@ meshEl.textContent = meshes;
 
 }
 
-/* CENTER MODEL RELIABLY */
+/* CENTER MODEL */
 
 function centerModel(){
 
 if(!currentModel) return;
 
-/* update transforms */
-
 modelPivot.updateMatrixWorld(true);
-
-/* compute bounding box */
 
 const box = new THREE.Box3().setFromObject(modelPivot);
 
@@ -135,24 +136,32 @@ const size = new THREE.Vector3();
 box.getCenter(center);
 box.getSize(size);
 
-/* shift pivot */
+/* move pivot */
 
 modelPivot.position.sub(center);
 
-/* move grid */
+/* scale grid */
+
+const maxDim = Math.max(size.x,size.y,size.z);
+
+scene.remove(grid);
+
+gridSize = maxDim * 4;
+
+grid = new THREE.GridHelper(gridSize,40,0x3aa0ff,0x1b4a66);
 
 grid.position.y = box.min.y - center.y;
 
-/* frame camera */
+scene.add(grid);
 
-const maxDim = Math.max(size.x,size.y,size.z);
+/* frame camera */
 
 const fov = camera.fov * (Math.PI/180);
 
 let distance = maxDim / (2 * Math.tan(fov/2));
-distance *= 1.6;
+distance *= 1.8;
 
-camera.position.set(distance,distance*0.6,distance);
+camera.position.set(distance,distance*0.7,distance);
 
 controls.target.set(0,0,0);
 controls.update();
