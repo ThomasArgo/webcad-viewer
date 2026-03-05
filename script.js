@@ -24,7 +24,8 @@ const autoRotateToggle = document.getElementById("auto-rotate");
 
 const rotateSpeedSlider = document.getElementById("rotate-speed");
 
-const resetModelRotationBtn = document.getElementById("reset-model-rotation");
+const centerBtn = document.getElementById("center-model");
+const resetRotationBtn = document.getElementById("reset-model-rotation");
 const resetCameraBtn = document.getElementById("reset-view");
 
 /* THREE */
@@ -67,22 +68,11 @@ scene.add(grid);
 
 /* storage */
 
-let currentModel = null;
-let pendingModel = null;
+let currentModel=null;
+let pendingModel=null;
 
-let originalRotation = new THREE.Euler();
-let originalMaterials = new Map();
-
-/* clear */
-
-function clearModel(){
-
-if(currentModel){
-scene.remove(currentModel);
-currentModel=null;
-}
-
-}
+let originalRotation=new THREE.Euler();
+let originalMaterials=new Map();
 
 /* stats */
 
@@ -98,70 +88,51 @@ if(child.isMesh && child.geometry){
 
 meshes++;
 
-const geo = child.geometry;
+const geo=child.geometry;
 
-vertices += geo.attributes.position.count;
+vertices+=geo.attributes.position.count;
 
 if(geo.index){
-triangles += geo.index.count/3;
+triangles+=geo.index.count/3;
 }else{
-triangles += geo.attributes.position.count/3;
+triangles+=geo.attributes.position.count/3;
 }
 
 }
 
 });
 
-triEl.textContent = triangles.toLocaleString();
-vertEl.textContent = vertices.toLocaleString();
-meshEl.textContent = meshes;
+triEl.textContent=triangles.toLocaleString();
+vertEl.textContent=vertices.toLocaleString();
+meshEl.textContent=meshes;
 
 }
 
-/* TRUE MODEL NORMALIZATION */
+/* CENTER VIEW (grid + camera) */
 
-function normalizeModel(model){
+function centerView(model){
 
-/* calculate bounding box */
+const box=new THREE.Box3().setFromObject(model);
 
-const box = new THREE.Box3().setFromObject(model);
-
-const center = new THREE.Vector3();
+const center=new THREE.Vector3();
 box.getCenter(center);
 
-/* shift vertices instead of object */
+/* move grid */
 
-model.traverse(child=>{
+grid.position.copy(center);
 
-if(child.isMesh){
+/* move camera target */
 
-child.geometry.translate(
--center.x,
--center.y,
--center.z
+controls.target.copy(center);
+
+/* reposition camera */
+
+camera.position.set(
+center.x + 8,
+center.y + 6,
+center.z + 8
 );
 
-}
-
-});
-
-/* recompute bounding box */
-
-const newBox = new THREE.Box3().setFromObject(model);
-
-const size = new THREE.Vector3();
-newBox.getSize(size);
-
-const maxDim = Math.max(size.x,size.y,size.z);
-
-const scale = 6/maxDim;
-
-model.scale.setScalar(scale);
-
-/* camera reset */
-
-camera.position.set(8,6,8);
-controls.target.set(0,0,0);
 controls.update();
 
 }
@@ -243,19 +214,19 @@ viewBtn.addEventListener("click",()=>{
 
 if(!pendingModel) return;
 
-clearModel();
+if(currentModel){
+scene.remove(currentModel);
+}
 
 currentModel=pendingModel;
 
 scene.add(currentModel);
 
-/* true centering */
+/* center camera/grid */
 
-normalizeModel(currentModel);
+centerView(currentModel);
 
 originalRotation.copy(currentModel.rotation);
-
-/* store materials */
 
 originalMaterials.clear();
 
@@ -268,6 +239,16 @@ originalMaterials.set(child,child.material);
 pendingModel=null;
 
 viewBtn.disabled=true;
+
+});
+
+/* center model button */
+
+centerBtn.addEventListener("click",()=>{
+
+if(!currentModel) return;
+
+centerView(currentModel);
 
 });
 
@@ -297,11 +278,11 @@ if(child.isMesh){
 
 if(e.target.checked){
 
-child.material = originalMaterials.get(child);
+child.material=originalMaterials.get(child);
 
 }else{
 
-child.material = new THREE.MeshStandardMaterial({
+child.material=new THREE.MeshStandardMaterial({
 color:0x4aa3ff,
 metalness:0.2,
 roughness:0.6
@@ -315,7 +296,7 @@ roughness:0.6
 
 });
 
-/* grid */
+/* grid toggle */
 
 gridToggle.addEventListener("change",e=>{
 grid.visible=e.target.checked;
@@ -333,7 +314,7 @@ controls.update();
 
 /* reset rotation */
 
-resetModelRotationBtn.addEventListener("click",()=>{
+resetRotationBtn.addEventListener("click",()=>{
 
 if(!currentModel) return;
 
