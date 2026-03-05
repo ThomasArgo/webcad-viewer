@@ -115,25 +115,34 @@ meshEl.textContent = meshes;
 
 }
 
-/* CENTER MODEL */
+/* CENTER + FRAME MODEL */
 
 function centerModel(model){
+
+/* IMPORTANT: update transforms first */
+model.updateMatrixWorld(true);
 
 const box = new THREE.Box3().setFromObject(model);
 
 const center = new THREE.Vector3();
 box.getCenter(center);
 
-model.position.sub(center);
-
-/* camera framing */
-
 const size = new THREE.Vector3();
 box.getSize(size);
 
-const maxDim = Math.max(size.x,size.y,size.z);
+/* recenter model */
+model.position.sub(center);
 
-const distance = maxDim * 2;
+/* place grid under model */
+grid.position.y = -size.y / 2;
+
+/* camera framing */
+
+const maxDim = Math.max(size.x,size.y,size.z);
+const fov = camera.fov * (Math.PI/180);
+
+let distance = maxDim / (2 * Math.tan(fov/2));
+distance *= 1.6;
 
 camera.position.set(distance,distance*0.7,distance);
 
