@@ -1,10 +1,13 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>WebCAD Viewer</title>
+
 <link rel="stylesheet" href="style.css">
+
 </head>
 
 <body>
@@ -12,13 +15,15 @@
 <div class="app-shell">
 
 <aside class="sidebar">
+
 <h1>WebCAD Viewer</h1>
-<p class="subtitle">Upload OBJ / STL / FBX files and inspect them in 3D.</p>
+
+<p class="subtitle">Upload OBJ / STL / FBX files</p>
 
 <label for="model-upload">Choose model</label>
 <input id="model-upload" type="file" accept=".obj,.stl,.fbx">
 
-<p id="loading-text" style="display:none;">Loading model...</p>
+<p id="loading-text">Loading model...</p>
 
 <button id="view-model-btn" disabled>View Model</button>
 
@@ -31,7 +36,6 @@
 <h2>Model Stats</h2>
 <p>Triangles: <span id="triangle-count">0</span></p>
 <p>Vertices: <span id="vertex-count">0</span></p>
-<p id="status-text">Load an OBJ, STL, or FBX file to begin.</p>
 </div>
 
 </aside>
@@ -41,9 +45,6 @@
 </main>
 
 </div>
-
-<script type="module" src="script.js"></script>
-</script>
 
 <script type="module" src="script.js"></script>
 
