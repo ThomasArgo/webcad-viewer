@@ -40,8 +40,6 @@ viewport.clientWidth / viewport.clientHeight,
 1000
 );
 
-camera.position.set(8,6,8);
-
 const renderer = new THREE.WebGLRenderer({
 canvas,
 antialias:true
@@ -108,29 +106,38 @@ meshEl.textContent=meshes;
 
 }
 
-/* CENTER VIEW (grid + camera) */
+/* FRAME MODEL (CORRECT GRID + CAMERA ALIGNMENT) */
 
-function centerView(model){
+function frameModel(model){
 
 const box=new THREE.Box3().setFromObject(model);
 
 const center=new THREE.Vector3();
 box.getCenter(center);
 
-/* move grid */
+const size=new THREE.Vector3();
+box.getSize(size);
 
-grid.position.copy(center);
+const bottom=box.min.y;
 
-/* move camera target */
+/* place grid under model */
+
+grid.position.set(center.x,bottom,center.z);
+
+/* aim camera */
 
 controls.target.copy(center);
 
-/* reposition camera */
+/* camera distance based on size */
+
+const maxDim=Math.max(size.x,size.y,size.z);
+
+const distance=maxDim*1.8;
 
 camera.position.set(
-center.x + 8,
-center.y + 6,
-center.z + 8
+center.x+distance,
+center.y+distance*0.7,
+center.z+distance
 );
 
 controls.update();
@@ -222,9 +229,9 @@ currentModel=pendingModel;
 
 scene.add(currentModel);
 
-/* center camera/grid */
+/* frame model */
 
-centerView(currentModel);
+frameModel(currentModel);
 
 originalRotation.copy(currentModel.rotation);
 
@@ -248,7 +255,7 @@ centerBtn.addEventListener("click",()=>{
 
 if(!currentModel) return;
 
-centerView(currentModel);
+frameModel(currentModel);
 
 });
 
@@ -277,17 +284,13 @@ currentModel.traverse(child=>{
 if(child.isMesh){
 
 if(e.target.checked){
-
 child.material=originalMaterials.get(child);
-
 }else{
-
 child.material=new THREE.MeshStandardMaterial({
 color:0x4aa3ff,
 metalness:0.2,
 roughness:0.6
 });
-
 }
 
 }
@@ -306,9 +309,9 @@ grid.visible=e.target.checked;
 
 resetCameraBtn.addEventListener("click",()=>{
 
-camera.position.set(8,6,8);
-controls.target.set(0,0,0);
-controls.update();
+if(!currentModel) return;
+
+frameModel(currentModel);
 
 });
 
