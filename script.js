@@ -80,8 +80,7 @@ scene.add(modelRoot);
 let currentModel = null;
 let pendingModel = null;
 
-let modelCenter = new THREE.Vector3();
-let modelSize = new THREE.Vector3();
+let finalModelSize = 1;
 
 let originalRotation = new THREE.Euler();
 let originalMaterials = new Map();
@@ -120,7 +119,7 @@ meshEl.textContent = meshes;
 
 }
 
-/* SCALE + CENTER MODEL (ONLY ONCE) */
+/* PREPARE MODEL */
 
 function prepareModel(){
 
@@ -128,16 +127,19 @@ modelRoot.updateMatrixWorld(true);
 
 const box = new THREE.Box3().setFromObject(modelRoot);
 
-box.getCenter(modelCenter);
-box.getSize(modelSize);
+const center = new THREE.Vector3();
+const size = new THREE.Vector3();
+
+box.getCenter(center);
+box.getSize(size);
 
 /* center */
 
-modelRoot.position.sub(modelCenter);
+modelRoot.position.sub(center);
 
 /* normalize scale */
 
-const maxDim = Math.max(modelSize.x,modelSize.y,modelSize.z);
+const maxDim = Math.max(size.x,size.y,size.z);
 
 const targetSize = 50;
 
@@ -145,15 +147,28 @@ const scale = targetSize / maxDim;
 
 modelRoot.scale.setScalar(scale);
 
+/* recalc box AFTER scaling */
+
+modelRoot.updateMatrixWorld(true);
+
+const newBox = new THREE.Box3().setFromObject(modelRoot);
+const newSize = new THREE.Vector3();
+
+newBox.getSize(newSize);
+
+finalModelSize = Math.max(newSize.x,newSize.y,newSize.z);
+
+/* place grid */
+
+grid.position.y = newBox.min.y;
+
 }
 
-/* FRAME CAMERA */
+/* CAMERA FRAME */
 
 function frameCamera(){
 
-const maxDim = Math.max(modelSize.x,modelSize.y,modelSize.z);
-
-const distance = maxDim * 2;
+const distance = finalModelSize * 2;
 
 camera.position.set(distance,distance*0.6,distance);
 
@@ -245,8 +260,6 @@ currentModel = pendingModel;
 
 modelRoot.add(currentModel);
 
-/* prepare once */
-
 prepareModel();
 
 frameCamera();
@@ -273,7 +286,6 @@ centerBtn.addEventListener("click",()=>{
 
 if(!currentModel) return;
 
-modelRoot.position.set(0,0,0);
 frameCamera();
 
 });
