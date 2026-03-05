@@ -1,10 +1,9 @@
-import * as THREE from "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js";
-import { OrbitControls } from "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/controls/OrbitControls.js";
-import { OBJLoader } from "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/loaders/OBJLoader.js";
-import { STLLoader } from "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/loaders/STLLoader.js";
-import { FBXLoader } from "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/loaders/FBXLoader.js";
+import * as THREE from "three";
 
-/* UI */
+import { OrbitControls } from "three/addons/controls/OrbitControls.js";
+import { OBJLoader } from "three/addons/loaders/OBJLoader.js";
+import { STLLoader } from "three/addons/loaders/STLLoader.js";
+import { FBXLoader } from "three/addons/loaders/FBXLoader.js";
 
 const canvas = document.getElementById("viewer-canvas");
 const viewport = document.querySelector(".viewport");
@@ -18,7 +17,7 @@ const vertEl = document.getElementById("vertex-count");
 
 const wireToggle = document.getElementById("wireframe-toggle");
 
-/* SCENE */
+/* scene */
 
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x0b2a3a);
@@ -42,7 +41,7 @@ renderer.setSize(viewport.clientWidth, viewport.clientHeight);
 const controls = new OrbitControls(camera, renderer.domElement);
 controls.enableDamping = true;
 
-/* LIGHTS */
+/* lighting */
 
 scene.add(new THREE.AmbientLight(0xffffff,0.7));
 
@@ -50,15 +49,15 @@ const light = new THREE.DirectionalLight(0xffffff,1);
 light.position.set(5,10,5);
 scene.add(light);
 
-/* GRID */
+/* grid */
 
 const grid = new THREE.GridHelper(40,40,0x3aa0ff,0x1b4a66);
 scene.add(grid);
 
-let currentModel=null;
-let pendingModel=null;
+let currentModel = null;
+let pendingModel = null;
 
-/* HELPERS */
+/* helpers */
 
 function clearModel(){
 
@@ -84,9 +83,7 @@ triEl.textContent=tris;
 function applyMaterial(object){
 
 const mat=new THREE.MeshStandardMaterial({
-color:0x4aa3ff,
-metalness:0.2,
-roughness:0.6
+color:0x4aa3ff
 });
 
 object.traverse(child=>{
@@ -122,7 +119,7 @@ controls.update();
 
 }
 
-/* FILE UPLOAD */
+/* upload */
 
 uploadInput.addEventListener("change",e=>{
 
@@ -134,8 +131,6 @@ viewBtn.disabled=true;
 
 const url=URL.createObjectURL(file);
 const ext=file.name.toLowerCase().split(".").pop();
-
-/* OBJ */
 
 if(ext==="obj"){
 
@@ -154,16 +149,16 @@ viewBtn.disabled=false;
 
 }
 
-/* STL */
-
 else if(ext==="stl"){
 
 const loader=new STLLoader();
 
 loader.load(url,geo=>{
 
-const mat=new THREE.MeshStandardMaterial({color:0x4aa3ff});
-const mesh=new THREE.Mesh(geo,mat);
+const mesh=new THREE.Mesh(
+geo,
+new THREE.MeshStandardMaterial({color:0x4aa3ff})
+);
 
 updateStats(geo);
 
@@ -175,8 +170,6 @@ viewBtn.disabled=false;
 });
 
 }
-
-/* FBX */
 
 else if(ext==="fbx"){
 
@@ -197,7 +190,7 @@ viewBtn.disabled=false;
 
 });
 
-/* VIEW MODEL BUTTON */
+/* view button */
 
 viewBtn.addEventListener("click",()=>{
 
@@ -217,7 +210,7 @@ viewBtn.disabled=true;
 
 });
 
-/* WIREFRAME */
+/* wireframe */
 
 wireToggle.addEventListener("change",e=>{
 
@@ -233,7 +226,7 @@ child.material.wireframe=e.target.checked;
 
 });
 
-/* RENDER LOOP */
+/* render loop */
 
 function animate(){
 
@@ -247,7 +240,7 @@ renderer.render(scene,camera);
 
 animate();
 
-/* RESIZE */
+/* resize */
 
 window.addEventListener("resize",()=>{
 
