@@ -4,12 +4,10 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-
 <title>WebCAD Viewer</title>
 
 <link rel="stylesheet" href="style.css">
 
-<!-- Three.js module map -->
 <script type="importmap">
 {
   "imports": {
@@ -42,13 +40,33 @@
 
 <label class="toggle-row">
 <input id="wireframe-toggle" type="checkbox">
-<span>Wireframe mode</span>
+<span>Wireframe Mode</span>
 </label>
+
+<div class="viewer-options">
+
+<label class="toggle-row">
+<input id="grid-toggle" type="checkbox" checked>
+<span>Show Grid</span>
+</label>
+
+<label class="toggle-row">
+<input id="auto-rotate" type="checkbox">
+<span>Auto Rotate</span>
+</label>
+
+<button id="reset-view">Reset Camera</button>
+
+</div>
 
 <div class="stats-card">
 <h2>Model Stats</h2>
 <p>Triangles: <span id="triangle-count">0</span></p>
 <p>Vertices: <span id="vertex-count">0</span></p>
+</div>
+
+<div class="sidebar-footer">
+© Thomas Argo 2026
 </div>
 
 </aside>
