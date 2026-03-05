@@ -37,7 +37,7 @@ const camera = new THREE.PerspectiveCamera(
 75,
 viewport.clientWidth / viewport.clientHeight,
 0.1,
-1000
+10000
 );
 
 const renderer = new THREE.WebGLRenderer({
@@ -53,21 +53,18 @@ controls.enableDamping = true;
 
 /* lights */
 
-scene.add(new THREE.AmbientLight(0xffffff,0.8));
+scene.add(new THREE.AmbientLight(0xffffff,0.9));
 
 const light = new THREE.DirectionalLight(0xffffff,1);
-light.position.set(5,10,5);
+light.position.set(10,20,10);
 scene.add(light);
 
 /* grid */
 
-const grid = new THREE.GridHelper(40,40,0x3aa0ff,0x1b4a66);
+const grid = new THREE.GridHelper(200,200,0x3aa0ff,0x1b4a66);
 scene.add(grid);
 
 /* storage */
-
-let modelPivot = new THREE.Group();
-scene.add(modelPivot);
 
 let currentModel=null;
 let pendingModel=null;
@@ -109,32 +106,49 @@ meshEl.textContent=meshes;
 
 }
 
-/* CENTER MODEL USING PIVOT */
+/* ZOOM TO FIT MODEL */
 
-function centerModel(model){
+function frameModel(model){
 
 const box = new THREE.Box3().setFromObject(model);
-
-const center = new THREE.Vector3();
-box.getCenter(center);
-
-model.position.sub(center);
-
-/* camera framing */
 
 const size = new THREE.Vector3();
 box.getSize(size);
 
-const maxDim = Math.max(size.x,size.y,size.z);
+const center = new THREE.Vector3();
+box.getCenter(center);
 
-const distance = maxDim * 1.8;
+/* move grid under model */
 
-camera.position.set(distance, distance*0.7, distance);
+grid.position.set(center.x, box.min.y, center.z);
 
-controls.target.set(0,0,0);
+/* aim camera */
+
+controls.target.copy(center);
+
+/* calculate best camera distance */
+
+const maxDim = Math.max(size.x, size.y, size.z);
+
+const fov = camera.fov * (Math.PI / 180);
+
+let distance = maxDim / (2 * Math.tan(fov / 2));
+
+distance *= 1.6;
+
+/* place camera */
+
+camera.position.set(
+center.x + distance,
+center.y + distance * 0.6,
+center.z + distance
+);
+
+camera.near = distance / 100;
+camera.far = distance * 100;
+camera.updateProjectionMatrix();
+
 controls.update();
-
-grid.position.set(0,box.min.y - center.y,0);
 
 }
 
@@ -215,13 +229,15 @@ viewBtn.addEventListener("click",()=>{
 
 if(!pendingModel) return;
 
-modelPivot.clear();
+if(currentModel){
+scene.remove(currentModel);
+}
 
 currentModel=pendingModel;
 
-modelPivot.add(currentModel);
+scene.add(currentModel);
 
-centerModel(currentModel);
+frameModel(currentModel);
 
 originalRotation.copy(currentModel.rotation);
 
@@ -245,7 +261,7 @@ centerBtn.addEventListener("click",()=>{
 
 if(!currentModel) return;
 
-centerModel(currentModel);
+frameModel(currentModel);
 
 });
 
@@ -289,7 +305,7 @@ roughness:0.6
 
 });
 
-/* grid */
+/* grid toggle */
 
 gridToggle.addEventListener("change",e=>{
 grid.visible=e.target.checked;
@@ -301,7 +317,7 @@ resetCameraBtn.addEventListener("click",()=>{
 
 if(!currentModel) return;
 
-centerModel(currentModel);
+frameModel(currentModel);
 
 });
 
