@@ -117,7 +117,7 @@ meshEl.textContent = meshes;
 
 }
 
-/* CENTER MODEL */
+/* CENTER + NORMALIZE MODEL */
 
 function centerModel(){
 
@@ -126,24 +126,49 @@ if(!currentModel) return;
 const box = new THREE.Box3().setFromObject(currentModel);
 
 const center = new THREE.Vector3();
-box.getCenter(center);
+const size = new THREE.Vector3();
 
-/* move model */
+box.getCenter(center);
+box.getSize(size);
+
+/* move model to origin */
 
 currentModel.position.sub(center);
 
-/* move grid */
-
-grid.position.y = box.min.y;
-
-/* frame camera */
-
-const size = new THREE.Vector3();
-box.getSize(size);
+/* normalize scale safely */
 
 const maxDim = Math.max(size.x,size.y,size.z);
 
-const distance = maxDim * 2;
+const targetSize = 50;
+
+if(maxDim > 0){
+
+const scale = targetSize / maxDim;
+
+/* only apply scaling if model extremely large */
+
+if(maxDim > 200){
+
+currentModel.scale.setScalar(scale);
+
+}
+
+}
+
+/* recalc box */
+
+const newBox = new THREE.Box3().setFromObject(currentModel);
+const newSize = new THREE.Vector3();
+
+newBox.getSize(newSize);
+
+/* grid placement */
+
+grid.position.y = newBox.min.y;
+
+/* camera framing */
+
+const distance = Math.max(newSize.x,newSize.y,newSize.z) * 2;
 
 camera.position.set(distance,distance*0.6,distance);
 
