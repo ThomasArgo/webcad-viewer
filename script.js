@@ -52,7 +52,6 @@ antialias:true
 });
 
 renderer.setSize(viewport.clientWidth, viewport.clientHeight);
-renderer.outputColorSpace = THREE.SRGBColorSpace;
 
 /* CONTROLS */
 
@@ -72,10 +71,10 @@ scene.add(light);
 const grid = new THREE.GridHelper(200,40,0x3aa0ff,0x1b4a66);
 scene.add(grid);
 
-/* MODEL GROUP */
+/* MODEL STRUCTURE */
 
-const modelGroup = new THREE.Group();
-scene.add(modelGroup);
+const pivot = new THREE.Group();
+scene.add(pivot);
 
 let currentModel = null;
 let pendingModel = null;
@@ -119,9 +118,15 @@ meshEl.textContent = meshes;
 
 }
 
-/* PREPARE MODEL (RUN ONCE) */
+/* PREPARE MODEL */
 
 function prepareModel(){
+
+pivot.clear();
+
+pivot.add(currentModel);
+
+/* bounding box */
 
 const box = new THREE.Box3().setFromObject(currentModel);
 
@@ -131,37 +136,39 @@ const size = new THREE.Vector3();
 box.getCenter(center);
 box.getSize(size);
 
-/* center model */
+/* move pivot */
 
-currentModel.position.sub(center);
+pivot.position.copy(center).multiplyScalar(-1);
 
 /* normalize size */
 
 const maxDim = Math.max(size.x,size.y,size.z);
+
 const targetSize = 50;
 
-const scale = targetSize / maxDim;
-
 if(maxDim > 200 || maxDim < 1){
-currentModel.scale.setScalar(scale);
+
+const scale = targetSize / maxDim;
+pivot.scale.setScalar(scale);
+
 }
 
-/* recalc after scale */
+/* recalc */
 
-const newBox = new THREE.Box3().setFromObject(currentModel);
+const newBox = new THREE.Box3().setFromObject(pivot);
 const newSize = new THREE.Vector3();
 
 newBox.getSize(newSize);
 
 modelSize = Math.max(newSize.x,newSize.y,newSize.z);
 
-/* grid under model */
+/* grid */
 
 grid.position.y = newBox.min.y;
 
 }
 
-/* FRAME CAMERA */
+/* CAMERA */
 
 function frameCamera(){
 
@@ -251,16 +258,12 @@ viewBtn.addEventListener("click",()=>{
 
 if(!pendingModel) return;
 
-modelGroup.clear();
-
 currentModel = pendingModel;
-
-modelGroup.add(currentModel);
 
 prepareModel();
 frameCamera();
 
-originalRotation.copy(currentModel.rotation);
+originalRotation.copy(pivot.rotation);
 
 originalMaterials.clear();
 
@@ -332,9 +335,7 @@ grid.visible = e.target.checked;
 
 resetRotationBtn.addEventListener("click",()=>{
 
-if(!currentModel) return;
-
-currentModel.rotation.copy(originalRotation);
+pivot.rotation.copy(originalRotation);
 
 });
 
@@ -346,11 +347,10 @@ requestAnimationFrame(animate);
 
 controls.update();
 
-if(autoRotateToggle.checked && currentModel){
+if(autoRotateToggle.checked && pivot){
 
 const speed = parseFloat(rotateSpeedSlider.value);
-
-currentModel.rotation.y += speed;
+pivot.rotation.y += speed;
 
 }
 
