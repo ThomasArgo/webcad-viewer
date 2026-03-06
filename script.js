@@ -72,15 +72,13 @@ scene.add(light);
 const grid = new THREE.GridHelper(200,40,0x3aa0ff,0x1b4a66);
 scene.add(grid);
 
-/* MODEL ROOT */
+/* MODEL GROUP */
 
-const modelRoot = new THREE.Group();
-scene.add(modelRoot);
+const modelGroup = new THREE.Group();
+scene.add(modelGroup);
 
 let currentModel = null;
 let pendingModel = null;
-
-let finalModelSize = 1;
 
 let originalRotation = new THREE.Euler();
 let originalMaterials = new Map();
@@ -119,56 +117,33 @@ meshEl.textContent = meshes;
 
 }
 
-/* PREPARE MODEL */
+/* CENTER MODEL */
 
-function prepareModel(){
+function centerModel(){
 
-modelRoot.updateMatrixWorld(true);
+if(!currentModel) return;
 
-const box = new THREE.Box3().setFromObject(modelRoot);
+const box = new THREE.Box3().setFromObject(currentModel);
 
 const center = new THREE.Vector3();
-const size = new THREE.Vector3();
-
 box.getCenter(center);
+
+/* move model */
+
+currentModel.position.sub(center);
+
+/* move grid */
+
+grid.position.y = box.min.y;
+
+/* frame camera */
+
+const size = new THREE.Vector3();
 box.getSize(size);
-
-/* center */
-
-modelRoot.position.sub(center);
-
-/* normalize scale */
 
 const maxDim = Math.max(size.x,size.y,size.z);
 
-const targetSize = 50;
-
-const scale = targetSize / maxDim;
-
-modelRoot.scale.setScalar(scale);
-
-/* recalc box AFTER scaling */
-
-modelRoot.updateMatrixWorld(true);
-
-const newBox = new THREE.Box3().setFromObject(modelRoot);
-const newSize = new THREE.Vector3();
-
-newBox.getSize(newSize);
-
-finalModelSize = Math.max(newSize.x,newSize.y,newSize.z);
-
-/* place grid */
-
-grid.position.y = newBox.min.y;
-
-}
-
-/* CAMERA FRAME */
-
-function frameCamera(){
-
-const distance = finalModelSize * 2;
+const distance = maxDim * 2;
 
 camera.position.set(distance,distance*0.6,distance);
 
@@ -254,15 +229,13 @@ viewBtn.addEventListener("click",()=>{
 
 if(!pendingModel) return;
 
-modelRoot.clear();
+modelGroup.clear();
 
 currentModel = pendingModel;
 
-modelRoot.add(currentModel);
+modelGroup.add(currentModel);
 
-prepareModel();
-
-frameCamera();
+centerModel();
 
 originalRotation.copy(currentModel.rotation);
 
@@ -280,25 +253,13 @@ viewBtn.disabled=true;
 
 });
 
-/* CENTER MODEL */
+/* CENTER BUTTON */
 
-centerBtn.addEventListener("click",()=>{
-
-if(!currentModel) return;
-
-frameCamera();
-
-});
+centerBtn.addEventListener("click",centerModel);
 
 /* RESET CAMERA */
 
-resetCameraBtn.addEventListener("click",()=>{
-
-if(!currentModel) return;
-
-frameCamera();
-
-});
+resetCameraBtn.addEventListener("click",centerModel);
 
 /* WIREFRAME */
 
