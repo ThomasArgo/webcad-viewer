@@ -80,6 +80,8 @@ scene.add(modelGroup);
 let currentModel = null;
 let pendingModel = null;
 
+let modelSize = 1;
+
 let originalRotation = new THREE.Euler();
 let originalMaterials = new Map();
 
@@ -117,11 +119,9 @@ meshEl.textContent = meshes;
 
 }
 
-/* CENTER + NORMALIZE MODEL */
+/* PREPARE MODEL (RUN ONCE) */
 
-function centerModel(){
-
-if(!currentModel) return;
+function prepareModel(){
 
 const box = new THREE.Box3().setFromObject(currentModel);
 
@@ -131,44 +131,41 @@ const size = new THREE.Vector3();
 box.getCenter(center);
 box.getSize(size);
 
-/* move model to origin */
+/* center model */
 
 currentModel.position.sub(center);
 
-/* normalize scale safely */
+/* normalize size */
 
 const maxDim = Math.max(size.x,size.y,size.z);
-
 const targetSize = 50;
-
-if(maxDim > 0){
 
 const scale = targetSize / maxDim;
 
-/* only apply scaling if model extremely large */
-
-if(maxDim > 200){
-
+if(maxDim > 200 || maxDim < 1){
 currentModel.scale.setScalar(scale);
-
 }
 
-}
-
-/* recalc box */
+/* recalc after scale */
 
 const newBox = new THREE.Box3().setFromObject(currentModel);
 const newSize = new THREE.Vector3();
 
 newBox.getSize(newSize);
 
-/* grid placement */
+modelSize = Math.max(newSize.x,newSize.y,newSize.z);
+
+/* grid under model */
 
 grid.position.y = newBox.min.y;
 
-/* camera framing */
+}
 
-const distance = Math.max(newSize.x,newSize.y,newSize.z) * 2;
+/* FRAME CAMERA */
+
+function frameCamera(){
+
+const distance = modelSize * 2;
 
 camera.position.set(distance,distance*0.6,distance);
 
@@ -260,7 +257,8 @@ currentModel = pendingModel;
 
 modelGroup.add(currentModel);
 
-centerModel();
+prepareModel();
+frameCamera();
 
 originalRotation.copy(currentModel.rotation);
 
@@ -278,13 +276,13 @@ viewBtn.disabled=true;
 
 });
 
-/* CENTER BUTTON */
+/* CENTER CAMERA */
 
-centerBtn.addEventListener("click",centerModel);
+centerBtn.addEventListener("click",frameCamera);
 
 /* RESET CAMERA */
 
-resetCameraBtn.addEventListener("click",centerModel);
+resetCameraBtn.addEventListener("click",frameCamera);
 
 /* WIREFRAME */
 
