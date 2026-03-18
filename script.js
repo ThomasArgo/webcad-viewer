@@ -27,6 +27,9 @@ const centerBtn = document.getElementById("center-model");
 const resetRotationBtn = document.getElementById("reset-model-rotation");
 const resetCameraBtn = document.getElementById("reset-view");
 
+const fileInfo = document.getElementById("file-info");
+const dropHint = document.getElementById("drop-hint");
+
 /* SCENE */
 
 const scene = new THREE.Scene();
@@ -54,37 +57,15 @@ renderer.setSize(viewport.clientWidth, viewport.clientHeight);
 
 const controls = new OrbitControls(camera, renderer.domElement);
 controls.enableDamping = true;
-controls.enablePan = true;
+controls.enablePan = false;
 
-/* LIGHTING (IMPROVED) */
+/* LIGHTS */
 
-scene.add(new THREE.HemisphereLight(0xffffff, 0x444444, 1));
+scene.add(new THREE.AmbientLight(0xffffff, 0.9));
 
-const keyLight = new THREE.DirectionalLight(0xffffff, 1.2);
-keyLight.position.set(50, 50, 50);
-
-const fillLight = new THREE.DirectionalLight(0xffffff, 0.5);
-fillLight.position.set(-30, 20, -20);
-
-scene.add(keyLight, fillLight);
-
-/* GRID + GROUND */
-
-const grid = new THREE.GridHelper(200, 50, 0x888888, 0x444444);
-scene.add(grid);
-
-const ground = new THREE.Mesh(
-new THREE.PlaneGeometry(500, 500),
-new THREE.MeshStandardMaterial({ color: 0x111111 })
-);
-ground.rotation.x = -Math.PI / 2;
-ground.position.y = -0.01;
-scene.add(ground);
-
-/* AXES */
-
-const axes = new THREE.AxesHelper(50);
-scene.add(axes);
+const light = new THREE.DirectionalLight(0xffffff, 1);
+light.position.set(20, 40, 20);
+scene.add(light);
 
 /* MODEL */
 
@@ -100,6 +81,7 @@ function disposeModel(model) {
 model.traverse(child => {
 if (child.isMesh) {
 child.geometry?.dispose();
+
 if (Array.isArray(child.material)) {
 child.material.forEach(m => m.dispose());
 } else {
@@ -112,15 +94,20 @@ child.material?.dispose();
 /* STATS */
 
 function computeStats(object) {
-let triangles = 0, vertices = 0, meshes = 0;
+let triangles = 0;
+let vertices = 0;
+let meshes = 0;
 
 object.traverse(child => {
 if (child.isMesh && child.geometry) {
 meshes++;
-vertices += child.geometry.attributes.position.count;
-triangles += child.geometry.index
-? child.geometry.index.count / 3
-: child.geometry.attributes.position.count / 3;
+
+const geo = child.geometry;
+vertices += geo.attributes.position.count;
+
+triangles += geo.index
+? geo.index.count / 3
+: geo.attributes.position.count / 3;
 }
 });
 
@@ -144,11 +131,7 @@ if (!base) return;
 
 let mat = textureToggle.checked
 ? base.clone()
-: new THREE.MeshStandardMaterial({
-color: 0x4aa3ff,
-metalness: 0.2,
-roughness: 0.6
-});
+: new THREE.MeshStandardMaterial({ color: 0x4aa3ff });
 
 mat.wireframe = wireToggle.checked;
 
@@ -170,10 +153,13 @@ disposeModel(currentModel);
 
 const container = new THREE.Group();
 
-/* ORIENTATION FIX */
+/* ✅ ONLY FIX FBX ORIENTATION */
+if (newModel.userData.isFBX) {
 newModel.rotation.x = -Math.PI / 2;
+}
 
 container.add(newModel);
+
 currentModel = container;
 scene.add(currentModel);
 
@@ -187,11 +173,13 @@ const box = new THREE.Box3().setFromObject(currentModel);
 const size = new THREE.Vector3();
 box.getSize(size);
 
-const scale = 50 / Math.max(size.x, size.y, size.z);
+const maxDim = Math.max(size.x, size.y, size.z);
+const scale = 50 / maxDim;
+
 currentModel.scale.setScalar(scale);
 currentModel.updateMatrixWorld(true);
 
-/* CENTER MODEL */
+/* CENTER */
 
 const center = new THREE.Box3().setFromObject(currentModel).getCenter(new THREE.Vector3());
 currentModel.position.sub(center);
@@ -207,10 +195,18 @@ controls.target.set(0, 0, 0);
 /* STORE MATERIALS */
 
 currentModel.traverse(child => {
-if (child.isMesh) baseMaterials.set(child, child.material);
+if (child.isMesh) {
+baseMaterials.set(child, child.material);
+}
 });
 
+wireToggle.checked = false;
+textureToggle.checked = true;
+
 applyMaterialState();
+
+/* HIDE DROP HINT */
+if (dropHint) dropHint.style.display = "none";
 }
 
 /* CAMERA */
@@ -218,6 +214,7 @@ applyMaterialState();
 function frameCamera() {
 
 const dist = modelRadius * 1.8;
+
 const dir = new THREE.Vector3(1, 0.6, 1).normalize();
 
 camera.position.copy(dir.multiplyScalar(dist));
@@ -236,20 +233,29 @@ uploadInput.addEventListener("change", e => {
 const file = e.target.files[0];
 if (!file) return;
 
+/* FILE INFO */
+if (fileInfo) {
+fileInfo.textContent = `${file.name} (${(file.size / 1024).toFixed(1)} KB)`;
+}
+
 loadingText.style.display = "block";
+loadingText.textContent = "Loading model...";
 viewBtn.disabled = true;
 
 const url = URL.createObjectURL(file);
 const ext = file.name.split(".").pop().toLowerCase();
 
 const done = (model) => {
+loadingText.textContent = "Processing...";
 pendingModel = model;
 computeStats(model);
 loadingText.style.display = "none";
 viewBtn.disabled = false;
 };
 
-if (ext === "obj") new OBJLoader().load(url, done);
+if (ext === "obj") {
+new OBJLoader().load(url, done);
+}
 
 if (ext === "stl") {
 new STLLoader().load(url, geo => {
@@ -260,7 +266,12 @@ new THREE.MeshStandardMaterial({ color: 0x4aa3ff })
 });
 }
 
-if (ext === "fbx") new FBXLoader().load(url, done);
+if (ext === "fbx") {
+new FBXLoader().load(url, model => {
+model.userData.isFBX = true; // ✅ mark FBX
+done(model);
+});
+}
 
 });
 
@@ -270,6 +281,10 @@ viewport.addEventListener("dragover", e => e.preventDefault());
 
 viewport.addEventListener("drop", e => {
 e.preventDefault();
+
+const file = e.dataTransfer.files[0];
+if (!file) return;
+
 uploadInput.files = e.dataTransfer.files;
 uploadInput.dispatchEvent(new Event("change"));
 });
@@ -277,11 +292,15 @@ uploadInput.dispatchEvent(new Event("change"));
 /* VIEW */
 
 viewBtn.addEventListener("click", () => {
+
 if (!pendingModel) return;
+
 prepareModel(pendingModel);
 frameCamera();
+
 pendingModel = null;
 viewBtn.disabled = true;
+
 });
 
 /* TOGGLES */
@@ -294,30 +313,11 @@ textureToggle.addEventListener("change", applyMaterialState);
 centerBtn.addEventListener("click", frameCamera);
 resetCameraBtn.addEventListener("click", frameCamera);
 
-/* SMOOTH RESET ROTATION */
+/* ROTATION */
 
-function smoothResetRotation() {
-if (!currentModel) return;
-
-const start = currentModel.rotation.clone();
-const end = new THREE.Euler(0, 0, 0);
-
-let t = 0;
-
-function animateReset() {
-t += 0.08;
-
-currentModel.rotation.x = THREE.MathUtils.lerp(start.x, end.x, t);
-currentModel.rotation.y = THREE.MathUtils.lerp(start.y, end.y, t);
-currentModel.rotation.z = THREE.MathUtils.lerp(start.z, end.z, t);
-
-if (t < 1) requestAnimationFrame(animateReset);
-}
-
-animateReset();
-}
-
-resetRotationBtn.addEventListener("click", smoothResetRotation);
+resetRotationBtn.addEventListener("click", () => {
+if (currentModel) currentModel.rotation.set(0, 0, 0);
+});
 
 /* LOOP */
 
