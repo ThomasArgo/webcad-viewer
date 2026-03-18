@@ -27,9 +27,6 @@ const centerBtn = document.getElementById("center-model");
 const resetRotationBtn = document.getElementById("reset-model-rotation");
 const resetCameraBtn = document.getElementById("reset-view");
 
-const fileInfo = document.getElementById("file-info");
-const dropHint = document.getElementById("drop-hint");
-
 /* SCENE */
 
 const scene = new THREE.Scene();
@@ -66,6 +63,11 @@ scene.add(new THREE.AmbientLight(0xffffff, 0.9));
 const light = new THREE.DirectionalLight(0xffffff, 1);
 light.position.set(20, 40, 20);
 scene.add(light);
+
+/* GRID (kept) */
+
+const grid = new THREE.GridHelper(200, 50, 0x888888, 0x444444);
+scene.add(grid);
 
 /* MODEL */
 
@@ -144,23 +146,16 @@ child.material = mat;
 
 function prepareModel(newModel) {
 
+/* REMOVE OLD */
+
 if (currentModel) {
 scene.remove(currentModel);
 disposeModel(currentModel);
 }
 
-/* CONTAINER */
+/* ADD NEW (NO ROTATION MODIFICATIONS) */
 
-const container = new THREE.Group();
-
-/* ✅ ONLY FIX FBX ORIENTATION */
-if (newModel.userData.isFBX) {
-newModel.rotation.x = -Math.PI / 2;
-}
-
-container.add(newModel);
-
-currentModel = container;
+currentModel = newModel;
 scene.add(currentModel);
 
 baseMaterials.clear();
@@ -204,9 +199,6 @@ wireToggle.checked = false;
 textureToggle.checked = true;
 
 applyMaterialState();
-
-/* HIDE DROP HINT */
-if (dropHint) dropHint.style.display = "none";
 }
 
 /* CAMERA */
@@ -233,20 +225,13 @@ uploadInput.addEventListener("change", e => {
 const file = e.target.files[0];
 if (!file) return;
 
-/* FILE INFO */
-if (fileInfo) {
-fileInfo.textContent = `${file.name} (${(file.size / 1024).toFixed(1)} KB)`;
-}
-
 loadingText.style.display = "block";
-loadingText.textContent = "Loading model...";
 viewBtn.disabled = true;
 
 const url = URL.createObjectURL(file);
 const ext = file.name.split(".").pop().toLowerCase();
 
 const done = (model) => {
-loadingText.textContent = "Processing...";
 pendingModel = model;
 computeStats(model);
 loadingText.style.display = "none";
@@ -267,26 +252,9 @@ new THREE.MeshStandardMaterial({ color: 0x4aa3ff })
 }
 
 if (ext === "fbx") {
-new FBXLoader().load(url, model => {
-model.userData.isFBX = true; // ✅ mark FBX
-done(model);
-});
+new FBXLoader().load(url, done);
 }
 
-});
-
-/* DRAG & DROP */
-
-viewport.addEventListener("dragover", e => e.preventDefault());
-
-viewport.addEventListener("drop", e => {
-e.preventDefault();
-
-const file = e.dataTransfer.files[0];
-if (!file) return;
-
-uploadInput.files = e.dataTransfer.files;
-uploadInput.dispatchEvent(new Event("change"));
 });
 
 /* VIEW */
