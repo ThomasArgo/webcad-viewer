@@ -72,7 +72,7 @@ let modelRadius = 1;
 
 const baseMaterials = new Map();
 
-/* CLEANUP OLD MODEL (IMPORTANT) */
+/* CLEANUP OLD MODEL */
 
 function disposeModel(model) {
 model.traverse(child => {
@@ -141,7 +141,7 @@ child.material = mat;
 
 function prepareModel(newModel) {
 
-/* 🔥 REMOVE OLD MODEL FIRST */
+/* REMOVE OLD MODEL */
 
 if (currentModel) {
 scene.remove(currentModel);
@@ -152,6 +152,9 @@ disposeModel(currentModel);
 
 currentModel = newModel;
 scene.add(currentModel);
+
+/* ✅ STORE ORIGINAL ROTATION (FIX) */
+currentModel.userData.initialRotation = currentModel.rotation.clone();
 
 baseMaterials.clear();
 
@@ -278,7 +281,9 @@ resetCameraBtn.addEventListener("click", frameCamera);
 /* ROTATION */
 
 resetRotationBtn.addEventListener("click", () => {
-if (currentModel) currentModel.rotation.set(0, 0, 0);
+if (currentModel && currentModel.userData.initialRotation) {
+currentModel.rotation.copy(currentModel.userData.initialRotation);
+}
 });
 
 /* LOOP */
