@@ -54,15 +54,37 @@ renderer.setSize(viewport.clientWidth, viewport.clientHeight);
 
 const controls = new OrbitControls(camera, renderer.domElement);
 controls.enableDamping = true;
-controls.enablePan = false;
+controls.enablePan = true;
 
-/* LIGHTS */
+/* LIGHTING (IMPROVED) */
 
-scene.add(new THREE.AmbientLight(0xffffff, 0.9));
+scene.add(new THREE.HemisphereLight(0xffffff, 0x444444, 1));
 
-const light = new THREE.DirectionalLight(0xffffff, 1);
-light.position.set(20, 40, 20);
-scene.add(light);
+const keyLight = new THREE.DirectionalLight(0xffffff, 1.2);
+keyLight.position.set(50, 50, 50);
+
+const fillLight = new THREE.DirectionalLight(0xffffff, 0.5);
+fillLight.position.set(-30, 20, -20);
+
+scene.add(keyLight, fillLight);
+
+/* GRID + GROUND */
+
+const grid = new THREE.GridHelper(200, 50, 0x888888, 0x444444);
+scene.add(grid);
+
+const ground = new THREE.Mesh(
+new THREE.PlaneGeometry(500, 500),
+new THREE.MeshStandardMaterial({ color: 0x111111 })
+);
+ground.rotation.x = -Math.PI / 2;
+ground.position.y = -0.01;
+scene.add(ground);
+
+/* AXES */
+
+const axes = new THREE.AxesHelper(50);
+scene.add(axes);
 
 /* MODEL */
 
@@ -72,13 +94,12 @@ let modelRadius = 1;
 
 const baseMaterials = new Map();
 
-/* CLEANUP OLD MODEL */
+/* CLEANUP */
 
 function disposeModel(model) {
 model.traverse(child => {
 if (child.isMesh) {
 child.geometry?.dispose();
-
 if (Array.isArray(child.material)) {
 child.material.forEach(m => m.dispose());
 } else {
@@ -88,23 +109,18 @@ child.material?.dispose();
 });
 }
 
-/* MODEL STATS */
+/* STATS */
 
 function computeStats(object) {
-let triangles = 0;
-let vertices = 0;
-let meshes = 0;
+let triangles = 0, vertices = 0, meshes = 0;
 
 object.traverse(child => {
 if (child.isMesh && child.geometry) {
 meshes++;
-
-const geo = child.geometry;
-vertices += geo.attributes.position.count;
-
-triangles += geo.index
-? geo.index.count / 3
-: geo.attributes.position.count / 3;
+vertices += child.geometry.attributes.position.count;
+triangles += child.geometry.index
+? child.geometry.index.count / 3
+: child.geometry.attributes.position.count / 3;
 }
 });
 
@@ -113,7 +129,7 @@ vertEl.textContent = vertices.toLocaleString();
 meshEl.textContent = meshes;
 }
 
-/* MATERIAL SYSTEM */
+/* MATERIAL */
 
 function applyMaterialState() {
 
@@ -128,7 +144,11 @@ if (!base) return;
 
 let mat = textureToggle.checked
 ? base.clone()
-: new THREE.MeshStandardMaterial({ color: 0x4aa3ff });
+: new THREE.MeshStandardMaterial({
+color: 0x4aa3ff,
+metalness: 0.2,
+roughness: 0.6
+});
 
 mat.wireframe = wireToggle.checked;
 
@@ -141,22 +161,19 @@ child.material = mat;
 
 function prepareModel(newModel) {
 
-/* REMOVE OLD MODEL */
-
 if (currentModel) {
 scene.remove(currentModel);
 disposeModel(currentModel);
 }
 
-/* 🔥 WRAP IN CONTAINER (KEY FIX) */
+/* CONTAINER */
 
 const container = new THREE.Group();
 
-/* 🔥 NORMALIZE ORIENTATION (Z-up → Y-up) */
+/* ORIENTATION FIX */
 newModel.rotation.x = -Math.PI / 2;
 
 container.add(newModel);
-
 currentModel = container;
 scene.add(currentModel);
 
@@ -170,32 +187,28 @@ const box = new THREE.Box3().setFromObject(currentModel);
 const size = new THREE.Vector3();
 box.getSize(size);
 
-const maxDim = Math.max(size.x, size.y, size.z);
-const scale = 50 / maxDim;
-
+const scale = 50 / Math.max(size.x, size.y, size.z);
 currentModel.scale.setScalar(scale);
 currentModel.updateMatrixWorld(true);
 
-/* BOUNDING SPHERE */
+/* CENTER MODEL */
+
+const center = new THREE.Box3().setFromObject(currentModel).getCenter(new THREE.Vector3());
+currentModel.position.sub(center);
+
+/* BOUNDS */
 
 const sphere = new THREE.Sphere();
 new THREE.Box3().setFromObject(currentModel).getBoundingSphere(sphere);
 
 modelRadius = sphere.radius;
-controls.target.copy(sphere.center);
+controls.target.set(0, 0, 0);
 
 /* STORE MATERIALS */
 
 currentModel.traverse(child => {
-if (child.isMesh) {
-baseMaterials.set(child, child.material);
-}
+if (child.isMesh) baseMaterials.set(child, child.material);
 });
-
-/* RESET UI */
-
-wireToggle.checked = false;
-textureToggle.checked = true;
 
 applyMaterialState();
 }
@@ -205,12 +218,9 @@ applyMaterialState();
 function frameCamera() {
 
 const dist = modelRadius * 1.8;
-
 const dir = new THREE.Vector3(1, 0.6, 1).normalize();
 
-camera.position.copy(
-controls.target.clone().add(dir.multiplyScalar(dist))
-);
+camera.position.copy(dir.multiplyScalar(dist));
 
 camera.near = dist / 100;
 camera.far = dist * 100;
@@ -219,7 +229,7 @@ camera.updateProjectionMatrix();
 controls.update();
 }
 
-/* LOAD FILE */
+/* LOAD */
 
 uploadInput.addEventListener("change", e => {
 
@@ -239,9 +249,7 @@ loadingText.style.display = "none";
 viewBtn.disabled = false;
 };
 
-if (ext === "obj") {
-new OBJLoader().load(url, done);
-}
+if (ext === "obj") new OBJLoader().load(url, done);
 
 if (ext === "stl") {
 new STLLoader().load(url, geo => {
@@ -252,24 +260,28 @@ new THREE.MeshStandardMaterial({ color: 0x4aa3ff })
 });
 }
 
-if (ext === "fbx") {
-new FBXLoader().load(url, done);
-}
+if (ext === "fbx") new FBXLoader().load(url, done);
 
 });
 
-/* VIEW MODEL */
+/* DRAG & DROP */
+
+viewport.addEventListener("dragover", e => e.preventDefault());
+
+viewport.addEventListener("drop", e => {
+e.preventDefault();
+uploadInput.files = e.dataTransfer.files;
+uploadInput.dispatchEvent(new Event("change"));
+});
+
+/* VIEW */
 
 viewBtn.addEventListener("click", () => {
-
 if (!pendingModel) return;
-
 prepareModel(pendingModel);
 frameCamera();
-
 pendingModel = null;
 viewBtn.disabled = true;
-
 });
 
 /* TOGGLES */
@@ -282,11 +294,30 @@ textureToggle.addEventListener("change", applyMaterialState);
 centerBtn.addEventListener("click", frameCamera);
 resetCameraBtn.addEventListener("click", frameCamera);
 
-/* ROTATION */
+/* SMOOTH RESET ROTATION */
 
-resetRotationBtn.addEventListener("click", () => {
-if (currentModel) currentModel.rotation.set(0, 0, 0);
-});
+function smoothResetRotation() {
+if (!currentModel) return;
+
+const start = currentModel.rotation.clone();
+const end = new THREE.Euler(0, 0, 0);
+
+let t = 0;
+
+function animateReset() {
+t += 0.08;
+
+currentModel.rotation.x = THREE.MathUtils.lerp(start.x, end.x, t);
+currentModel.rotation.y = THREE.MathUtils.lerp(start.y, end.y, t);
+currentModel.rotation.z = THREE.MathUtils.lerp(start.z, end.z, t);
+
+if (t < 1) requestAnimationFrame(animateReset);
+}
+
+animateReset();
+}
+
+resetRotationBtn.addEventListener("click", smoothResetRotation);
 
 /* LOOP */
 
