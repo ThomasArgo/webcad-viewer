@@ -27,8 +27,7 @@ const centerBtn = document.getElementById("center-model");
 const resetRotationBtn = document.getElementById("reset-model-rotation");
 const resetCameraBtn = document.getElementById("reset-view");
 
-const fileInfo = document.getElementById("file-info");
-const dropHint = document.getElementById("drop-hint");
+const lightingSelect = document.getElementById("lighting-select");
 
 /* SCENE */
 
@@ -59,7 +58,7 @@ const controls = new OrbitControls(camera, renderer.domElement);
 controls.enableDamping = true;
 controls.enablePan = false;
 
-/* LIGHTING SYSTEM */
+/* LIGHTS */
 
 const ambient = new THREE.AmbientLight(0xffffff, 0.9);
 scene.add(ambient);
@@ -68,24 +67,25 @@ const dirLight = new THREE.DirectionalLight(0xffffff, 1);
 dirLight.position.set(20, 40, 20);
 scene.add(dirLight);
 
-let lightingMode = 0;
+/* LIGHTING MODES */
 
 function setLightingMode(mode) {
+
 switch (mode) {
 
-case 0: // studio (default)
+case "0": // Studio
 ambient.intensity = 0.9;
 dirLight.intensity = 1;
 scene.background.set(0x0b2a3a);
 break;
 
-case 1: // bright
+case "1": // Bright
 ambient.intensity = 1.3;
 dirLight.intensity = 1.5;
 scene.background.set(0x123b52);
 break;
 
-case 2: // dark
+case "2": // Dark
 ambient.intensity = 0.4;
 dirLight.intensity = 0.6;
 scene.background.set(0x050f14);
@@ -93,6 +93,9 @@ break;
 
 }
 }
+
+/* DEFAULT */
+setLightingMode("0");
 
 /* MODEL */
 
@@ -108,7 +111,6 @@ function disposeModel(model) {
 model.traverse(child => {
 if (child.isMesh) {
 child.geometry?.dispose();
-
 if (Array.isArray(child.material)) {
 child.material.forEach(m => m.dispose());
 } else {
@@ -128,10 +130,8 @@ let meshes = 0;
 object.traverse(child => {
 if (child.isMesh && child.geometry) {
 meshes++;
-
 const geo = child.geometry;
 vertices += geo.attributes.position.count;
-
 triangles += geo.index
 ? geo.index.count / 3
 : geo.attributes.position.count / 3;
@@ -158,11 +158,7 @@ if (!base) return;
 
 let mat = textureToggle.checked
 ? base.clone()
-: new THREE.MeshStandardMaterial({
-color: 0x4aa3ff,
-metalness: 0.2,
-roughness: 0.6
-});
+: new THREE.MeshStandardMaterial({ color: 0x4aa3ff });
 
 mat.wireframe = wireToggle.checked;
 
@@ -179,8 +175,6 @@ if (currentModel) {
 scene.remove(currentModel);
 disposeModel(currentModel);
 }
-
-/* CONTAINER */
 
 const container = new THREE.Group();
 container.add(newModel);
@@ -229,9 +223,6 @@ wireToggle.checked = false;
 textureToggle.checked = true;
 
 applyMaterialState();
-
-/* HIDE DROP HINT */
-if (dropHint) dropHint.style.display = "none";
 }
 
 /* CAMERA */
@@ -239,7 +230,6 @@ if (dropHint) dropHint.style.display = "none";
 function frameCamera() {
 
 const dist = modelRadius * 1.8;
-
 const dir = new THREE.Vector3(1, 0.6, 1).normalize();
 
 camera.position.copy(dir.multiplyScalar(dist));
@@ -258,19 +248,13 @@ uploadInput.addEventListener("change", e => {
 const file = e.target.files[0];
 if (!file) return;
 
-if (fileInfo) {
-fileInfo.textContent = `${file.name} (${(file.size / 1024).toFixed(1)} KB)`;
-}
-
 loadingText.style.display = "block";
-loadingText.textContent = "Loading model...";
 viewBtn.disabled = true;
 
 const url = URL.createObjectURL(file);
 const ext = file.name.split(".").pop().toLowerCase();
 
 const done = (model) => {
-loadingText.textContent = "Processing...";
 pendingModel = model;
 computeStats(model);
 loadingText.style.display = "none";
@@ -292,28 +276,20 @@ if (ext === "fbx") new FBXLoader().load(url, done);
 
 });
 
-/* DRAG & DROP */
-
-viewport.addEventListener("dragover", e => e.preventDefault());
-
-viewport.addEventListener("drop", e => {
-e.preventDefault();
-uploadInput.files = e.dataTransfer.files;
-uploadInput.dispatchEvent(new Event("change"));
-});
-
 /* VIEW */
 
 viewBtn.addEventListener("click", () => {
-
 if (!pendingModel) return;
-
 prepareModel(pendingModel);
 frameCamera();
-
 pendingModel = null;
 viewBtn.disabled = true;
+});
 
+/* LIGHTING DROPDOWN */
+
+lightingSelect.addEventListener("change", (e) => {
+setLightingMode(e.target.value);
 });
 
 /* TOGGLES */
@@ -330,36 +306,6 @@ resetCameraBtn.addEventListener("click", frameCamera);
 
 resetRotationBtn.addEventListener("click", () => {
 if (currentModel) currentModel.rotation.set(0, 0, 0);
-});
-
-/* KEYBINDS */
-
-window.addEventListener("keydown", (e) => {
-
-if (!currentModel) return;
-
-switch (e.key.toLowerCase()) {
-
-case "r":
-currentModel.rotation.set(0, 0, 0);
-break;
-
-case "c":
-frameCamera();
-break;
-
-case "w":
-wireToggle.checked = !wireToggle.checked;
-applyMaterialState();
-break;
-
-case "l": // 🔥 lighting toggle
-lightingMode = (lightingMode + 1) % 3;
-setLightingMode(lightingMode);
-break;
-
-}
-
 });
 
 /* LOOP */
