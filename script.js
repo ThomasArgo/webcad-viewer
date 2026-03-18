@@ -70,9 +70,23 @@ let currentModel = null;
 let pendingModel = null;
 let modelRadius = 1;
 
-/* MATERIAL STATE */
-
 const baseMaterials = new Map();
+
+/* CLEANUP OLD MODEL (IMPORTANT) */
+
+function disposeModel(model) {
+model.traverse(child => {
+if (child.isMesh) {
+child.geometry?.dispose();
+
+if (Array.isArray(child.material)) {
+child.material.forEach(m => m.dispose());
+} else {
+child.material?.dispose();
+}
+}
+});
+}
 
 /* MODEL STATS */
 
@@ -99,7 +113,7 @@ vertEl.textContent = vertices.toLocaleString();
 meshEl.textContent = meshes;
 }
 
-/* APPLY MATERIAL STATE (FIXES GLITCH) */
+/* MATERIAL SYSTEM */
 
 function applyMaterialState() {
 
@@ -109,77 +123,61 @@ currentModel.traverse(child => {
 
 if (!child.isMesh) return;
 
-let base = baseMaterials.get(child);
-
+const base = baseMaterials.get(child);
 if (!base) return;
 
-/* clone fresh every time */
-
-let mat;
-
-if (textureToggle.checked) {
-mat = base.clone();
-} else {
-mat = new THREE.MeshStandardMaterial({ color: 0x4aa3ff });
-}
-
-/* apply wireframe consistently */
+let mat = textureToggle.checked
+? base.clone()
+: new THREE.MeshStandardMaterial({ color: 0x4aa3ff });
 
 mat.wireframe = wireToggle.checked;
 
 child.material = mat;
 
 });
-
 }
 
 /* PREPARE MODEL */
 
-function prepareModel() {
+function prepareModel(newModel) {
 
-/* REMOVE OLD MODEL COMPLETELY */
+/* 🔥 REMOVE OLD MODEL FIRST */
 
 if (currentModel) {
 scene.remove(currentModel);
+disposeModel(currentModel);
 }
 
-/* CLEAR MATERIAL CACHE */
+/* SET NEW MODEL */
+
+currentModel = newModel;
+scene.add(currentModel);
 
 baseMaterials.clear();
 
-/* ADD NEW */
-
-scene.add(currentModel);
-
 currentModel.updateMatrixWorld(true);
 
-/* SCALE NORMALIZATION */
+/* SCALE */
 
 const box = new THREE.Box3().setFromObject(currentModel);
 const size = new THREE.Vector3();
 box.getSize(size);
 
 const maxDim = Math.max(size.x, size.y, size.z);
-const targetSize = 50;
+const scale = 50 / maxDim;
 
-const scale = targetSize / maxDim;
 currentModel.scale.setScalar(scale);
-
 currentModel.updateMatrixWorld(true);
 
 /* BOUNDING SPHERE */
 
-const scaledBox = new THREE.Box3().setFromObject(currentModel);
 const sphere = new THREE.Sphere();
-scaledBox.getBoundingSphere(sphere);
+new THREE.Box3().setFromObject(currentModel).getBoundingSphere(sphere);
 
 modelRadius = sphere.radius;
-
-/* TARGET */
-
 controls.target.copy(sphere.center);
 
-/* STORE BASE MATERIALS */
+/* STORE MATERIALS */
 
 currentModel.traverse(child => {
 if (child.isMesh) {
@@ -187,7 +185,7 @@ baseMaterials.set(child, child.material);
 }
 });
 
-/* RESET UI STATE */
+/* RESET UI */
 
 wireToggle.checked = false;
 textureToggle.checked = true;
@@ -199,19 +197,18 @@ applyMaterialState();
 
 function frameCamera() {
 
-const distance = modelRadius * 1.8;
+const dist = modelRadius * 1.8;
 
 const dir = new THREE.Vector3(1, 0.6, 1).normalize();
 
 camera.position.copy(
-controls.target.clone().add(dir.multiplyScalar(distance))
+controls.target.clone().add(dir.multiplyScalar(dist))
 );
 
-camera.near = distance / 100;
-camera.far = distance * 100;
+camera.near = dist / 100;
+camera.far = dist * 100;
 
 camera.updateProjectionMatrix();
-
 controls.update();
 }
 
@@ -228,35 +225,28 @@ viewBtn.disabled = true;
 const url = URL.createObjectURL(file);
 const ext = file.name.split(".").pop().toLowerCase();
 
-if (ext === "obj") {
-new OBJLoader().load(url, obj => {
-pendingModel = obj;
-computeStats(obj);
+const done = (model) => {
+pendingModel = model;
+computeStats(model);
 loadingText.style.display = "none";
 viewBtn.disabled = false;
-});
+};
+
+if (ext === "obj") {
+new OBJLoader().load(url, done);
 }
 
 if (ext === "stl") {
 new STLLoader().load(url, geo => {
-const mesh = new THREE.Mesh(
+done(new THREE.Mesh(
 geo,
 new THREE.MeshStandardMaterial({ color: 0x4aa3ff })
-);
-pendingModel = mesh;
-computeStats(mesh);
-loadingText.style.display = "none";
-viewBtn.disabled = false;
+));
 });
 }
 
 if (ext === "fbx") {
-new FBXLoader().load(url, obj => {
-pendingModel = obj;
-computeStats(obj);
-loadingText.style.display = "none";
-viewBtn.disabled = false;
-});
+new FBXLoader().load(url, done);
 }
 
 });
@@ -267,9 +257,7 @@ viewBtn.addEventListener("click", () => {
 
 if (!pendingModel) return;
 
-currentModel = pendingModel;
-
-prepareModel();
+prepareModel(pendingModel);
 frameCamera();
 
 pendingModel = null;
@@ -282,7 +270,7 @@ viewBtn.disabled = true;
 wireToggle.addEventListener("change", applyMaterialState);
 textureToggle.addEventListener("change", applyMaterialState);
 
-/* CAMERA BUTTONS */
+/* CAMERA */
 
 centerBtn.addEventListener("click", frameCamera);
 resetCameraBtn.addEventListener("click", frameCamera);
@@ -293,9 +281,10 @@ resetRotationBtn.addEventListener("click", () => {
 if (currentModel) currentModel.rotation.set(0, 0, 0);
 });
 
-/* RENDER */
+/* LOOP */
 
 function animate() {
+
 requestAnimationFrame(animate);
 
 controls.update();
@@ -305,6 +294,7 @@ currentModel.rotation.y += parseFloat(rotateSpeedSlider.value);
 }
 
 renderer.render(scene, camera);
+
 }
 
 animate();
