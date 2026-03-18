@@ -27,6 +27,9 @@ const centerBtn = document.getElementById("center-model");
 const resetRotationBtn = document.getElementById("reset-model-rotation");
 const resetCameraBtn = document.getElementById("reset-view");
 
+const fileInfo = document.getElementById("file-info");
+const dropHint = document.getElementById("drop-hint");
+
 /* SCENE */
 
 const scene = new THREE.Scene();
@@ -63,11 +66,6 @@ scene.add(new THREE.AmbientLight(0xffffff, 0.9));
 const light = new THREE.DirectionalLight(0xffffff, 1);
 light.position.set(20, 40, 20);
 scene.add(light);
-
-/* GRID (kept) */
-
-const grid = new THREE.GridHelper(200, 50, 0x888888, 0x444444);
-scene.add(grid);
 
 /* MODEL */
 
@@ -146,16 +144,19 @@ child.material = mat;
 
 function prepareModel(newModel) {
 
-/* REMOVE OLD */
-
 if (currentModel) {
 scene.remove(currentModel);
 disposeModel(currentModel);
 }
 
-/* ADD NEW (NO ROTATION MODIFICATIONS) */
+/* CONTAINER */
 
-currentModel = newModel;
+const container = new THREE.Group();
+
+/* ORIENTATION FIX */
+container.add(newModel);
+
+currentModel = container;
 scene.add(currentModel);
 
 baseMaterials.clear();
@@ -199,6 +200,9 @@ wireToggle.checked = false;
 textureToggle.checked = true;
 
 applyMaterialState();
+
+/* HIDE DROP HINT */
+if (dropHint) dropHint.style.display = "none";
 }
 
 /* CAMERA */
@@ -225,13 +229,20 @@ uploadInput.addEventListener("change", e => {
 const file = e.target.files[0];
 if (!file) return;
 
+/* FILE INFO */
+if (fileInfo) {
+fileInfo.textContent = `${file.name} (${(file.size / 1024).toFixed(1)} KB)`;
+}
+
 loadingText.style.display = "block";
+loadingText.textContent = "Loading model...";
 viewBtn.disabled = true;
 
 const url = URL.createObjectURL(file);
 const ext = file.name.split(".").pop().toLowerCase();
 
 const done = (model) => {
+loadingText.textContent = "Processing...";
 pendingModel = model;
 computeStats(model);
 loadingText.style.display = "none";
@@ -255,6 +266,22 @@ if (ext === "fbx") {
 new FBXLoader().load(url, done);
 }
 
+});
+
+/* DRAG & DROP */
+
+viewport.addEventListener("dragover", e => {
+e.preventDefault();
+});
+
+viewport.addEventListener("drop", e => {
+e.preventDefault();
+
+const file = e.dataTransfer.files[0];
+if (!file) return;
+
+uploadInput.files = e.dataTransfer.files;
+uploadInput.dispatchEvent(new Event("change"));
 });
 
 /* VIEW */
@@ -285,6 +312,29 @@ resetCameraBtn.addEventListener("click", frameCamera);
 
 resetRotationBtn.addEventListener("click", () => {
 if (currentModel) currentModel.rotation.set(0, 0, 0);
+});
+
+/* KEYBINDS */
+
+window.addEventListener("keydown", (e) => {
+
+if (!currentModel) return;
+
+switch (e.key.toLowerCase()) {
+case "r":
+currentModel.rotation.set(0, 0, 0);
+break;
+
+case "c":
+frameCamera();
+break;
+
+case "w":
+wireToggle.checked = !wireToggle.checked;
+applyMaterialState();
+break;
+}
+
 });
 
 /* LOOP */
