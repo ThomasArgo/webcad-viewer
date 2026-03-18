@@ -38,17 +38,17 @@ scene.background = new THREE.Color(0x0b2a3a);
 const camera = new THREE.PerspectiveCamera(
 75,
 viewport.clientWidth / viewport.clientHeight,
-0.1,
-10000
+0.01,
+100000
 );
 
-camera.position.set(80,60,80);
+camera.position.set(80, 60, 80);
 
 /* RENDERER */
 
 const renderer = new THREE.WebGLRenderer({
 canvas,
-antialias:true
+antialias: true
 });
 
 renderer.setSize(viewport.clientWidth, viewport.clientHeight);
@@ -60,15 +60,15 @@ controls.enableDamping = true;
 
 /* LIGHTS */
 
-scene.add(new THREE.AmbientLight(0xffffff,0.9));
+scene.add(new THREE.AmbientLight(0xffffff, 0.9));
 
-const light = new THREE.DirectionalLight(0xffffff,1);
-light.position.set(20,40,20);
+const light = new THREE.DirectionalLight(0xffffff, 1);
+light.position.set(20, 40, 20);
 scene.add(light);
 
 /* GRID */
 
-const grid = new THREE.GridHelper(200,40,0x3aa0ff,0x1b4a66);
+let grid = new THREE.GridHelper(200, 40, 0x3aa0ff, 0x1b4a66);
 scene.add(grid);
 
 /* MODEL STRUCTURE */
@@ -86,43 +86,38 @@ let originalMaterials = new Map();
 
 /* MODEL STATS */
 
-function computeStats(object){
-
+function computeStats(object) {
 let triangles = 0;
 let vertices = 0;
 let meshes = 0;
 
-object.traverse(child=>{
-
-if(child.isMesh && child.geometry){
-
+object.traverse(child => {
+if (child.isMesh && child.geometry) {
 meshes++;
 
 const geo = child.geometry;
 
 vertices += geo.attributes.position.count;
 
-if(geo.index){
-triangles += geo.index.count/3;
-}else{
-triangles += geo.attributes.position.count/3;
+if (geo.index) {
+triangles += geo.index.count / 3;
+} else {
+triangles += geo.attributes.position.count / 3;
 }
-
 }
-
 });
 
 triEl.textContent = triangles.toLocaleString();
 vertEl.textContent = vertices.toLocaleString();
 meshEl.textContent = meshes;
-
 }
 
 /* PREPARE MODEL */
 
-function prepareModel(){
+function prepareModel() {
 
 pivot.clear();
+pivot.scale.set(1, 1, 1); // reset scale
 
 pivot.add(currentModel);
 
@@ -136,22 +131,17 @@ const size = new THREE.Vector3();
 box.getCenter(center);
 box.getSize(size);
 
-/* move pivot */
+/* center model */
 
 pivot.position.copy(center).multiplyScalar(-1);
 
-/* normalize size */
+/* ALWAYS normalize size */
 
-const maxDim = Math.max(size.x,size.y,size.z);
-
+const maxDim = Math.max(size.x, size.y, size.z);
 const targetSize = 50;
-
-if(maxDim > 200 || maxDim < 1){
 
 const scale = targetSize / maxDim;
 pivot.scale.setScalar(scale);
-
-}
 
 /* recalc */
 
@@ -160,33 +150,40 @@ const newSize = new THREE.Vector3();
 
 newBox.getSize(newSize);
 
-modelSize = Math.max(newSize.x,newSize.y,newSize.z);
+modelSize = Math.max(newSize.x, newSize.y, newSize.z);
 
-/* grid */
+/* dynamic grid */
 
+scene.remove(grid);
+
+const gridSize = modelSize * 2;
+const divisions = 40;
+
+grid = new THREE.GridHelper(gridSize, divisions, 0x3aa0ff, 0x1b4a66);
 grid.position.y = newBox.min.y;
 
+scene.add(grid);
 }
 
 /* CAMERA */
 
-function frameCamera(){
+function frameCamera() {
 
-const distance = modelSize * 2;
+const fov = camera.fov * (Math.PI / 180);
+const distance = modelSize / (2 * Math.tan(fov / 2));
 
-camera.position.set(distance,distance*0.6,distance);
+camera.position.set(distance, distance * 0.6, distance);
 
-controls.target.set(0,0,0);
+controls.target.set(0, 0, 0);
 controls.update();
-
 }
 
 /* LOAD FILE */
 
-uploadInput.addEventListener("change",e=>{
+uploadInput.addEventListener("change", e => {
 
 const file = e.target.files[0];
-if(!file) return;
+if (!file) return;
 
 loadingText.style.display = "block";
 viewBtn.disabled = true;
@@ -196,16 +193,16 @@ const ext = file.name.split(".").pop().toLowerCase();
 
 /* OBJ */
 
-if(ext==="obj"){
+if (ext === "obj") {
 
-new OBJLoader().load(url,obj=>{
+new OBJLoader().load(url, obj => {
 
 pendingModel = obj;
 
 computeStats(obj);
 
-loadingText.style.display="none";
-viewBtn.disabled=false;
+loadingText.style.display = "none";
+viewBtn.disabled = false;
 
 });
 
@@ -213,21 +210,21 @@ viewBtn.disabled=false;
 
 /* STL */
 
-if(ext==="stl"){
+if (ext === "stl") {
 
-new STLLoader().load(url,geo=>{
+new STLLoader().load(url, geo => {
 
 const mesh = new THREE.Mesh(
 geo,
-new THREE.MeshStandardMaterial({color:0x4aa3ff})
+new THREE.MeshStandardMaterial({ color: 0x4aa3ff })
 );
 
 pendingModel = mesh;
 
 computeStats(mesh);
 
-loadingText.style.display="none";
-viewBtn.disabled=false;
+loadingText.style.display = "none";
+viewBtn.disabled = false;
 
 });
 
@@ -235,16 +232,16 @@ viewBtn.disabled=false;
 
 /* FBX */
 
-if(ext==="fbx"){
+if (ext === "fbx") {
 
-new FBXLoader().load(url,obj=>{
+new FBXLoader().load(url, obj => {
 
 pendingModel = obj;
 
 computeStats(obj);
 
-loadingText.style.display="none";
-viewBtn.disabled=false;
+loadingText.style.display = "none";
+viewBtn.disabled = false;
 
 });
 
@@ -254,9 +251,9 @@ viewBtn.disabled=false;
 
 /* VIEW MODEL */
 
-viewBtn.addEventListener("click",()=>{
+viewBtn.addEventListener("click", () => {
 
-if(!pendingModel) return;
+if (!pendingModel) return;
 
 currentModel = pendingModel;
 
@@ -267,55 +264,63 @@ originalRotation.copy(pivot.rotation);
 
 originalMaterials.clear();
 
-currentModel.traverse(child=>{
-if(child.isMesh){
-originalMaterials.set(child,child.material);
+currentModel.traverse(child => {
+if (child.isMesh) {
+originalMaterials.set(child, child.material);
 }
 });
 
-pendingModel=null;
+pendingModel = null;
 
-viewBtn.disabled=true;
+viewBtn.disabled = true;
 
 });
 
 /* CENTER CAMERA */
 
-centerBtn.addEventListener("click",frameCamera);
+centerBtn.addEventListener("click", frameCamera);
 
 /* RESET CAMERA */
 
-resetCameraBtn.addEventListener("click",frameCamera);
+resetCameraBtn.addEventListener("click", frameCamera);
 
 /* WIREFRAME */
 
-wireToggle.addEventListener("change",e=>{
+wireToggle.addEventListener("change", e => {
 
-if(!currentModel) return;
+if (!currentModel) return;
 
-currentModel.traverse(child=>{
-if(child.material){
-child.material.wireframe=e.target.checked;
+currentModel.traverse(child => {
+
+if (child.material) {
+
+if (Array.isArray(child.material)) {
+child.material.forEach(m => m.wireframe = e.target.checked);
+} else {
+child.material.wireframe = e.target.checked;
 }
+
+}
+
 });
 
 });
 
 /* TEXTURE */
 
-textureToggle.addEventListener("change",e=>{
+textureToggle.addEventListener("change", e => {
 
-if(!currentModel) return;
+if (!currentModel) return;
 
-currentModel.traverse(child=>{
+currentModel.traverse(child => {
 
-if(child.isMesh){
+if (child.isMesh) {
 
-if(e.target.checked){
+if (e.target.checked) {
 child.material = originalMaterials.get(child);
-}else{
+} else {
 child.material = new THREE.MeshStandardMaterial({
-color:0x4aa3ff
+color: 0x4aa3ff
 });
 }
 
@@ -327,46 +332,43 @@ color:0x4aa3ff
 
 /* GRID */
 
-gridToggle.addEventListener("change",e=>{
+gridToggle.addEventListener("change", e => {
 grid.visible = e.target.checked;
 });
 
 /* RESET ROTATION */
 
-resetRotationBtn.addEventListener("click",()=>{
-
+resetRotationBtn.addEventListener("click", () => {
 pivot.rotation.copy(originalRotation);
-
 });
 
 /* RENDER LOOP */
 
-function animate(){
+function animate() {
 
 requestAnimationFrame(animate);
 
 controls.update();
 
-if(autoRotateToggle.checked && pivot){
+if (autoRotateToggle.checked && pivot) {
 
 const speed = parseFloat(rotateSpeedSlider.value);
 pivot.rotation.y += speed;
 
 }
 
-renderer.render(scene,camera);
-
+renderer.render(scene, camera);
 }
 
 animate();
 
 /* RESIZE */
 
-window.addEventListener("resize",()=>{
+window.addEventListener("resize", () => {
 
 camera.aspect = viewport.clientWidth / viewport.clientHeight;
 camera.updateProjectionMatrix();
 
-renderer.setSize(viewport.clientWidth,viewport.clientHeight);
+renderer.setSize(viewport.clientWidth, viewport.clientHeight);
 
 });
