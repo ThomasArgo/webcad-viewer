@@ -59,13 +59,40 @@ const controls = new OrbitControls(camera, renderer.domElement);
 controls.enableDamping = true;
 controls.enablePan = false;
 
-/* LIGHTS */
+/* LIGHTING SYSTEM */
 
-scene.add(new THREE.AmbientLight(0xffffff, 0.9));
+const ambient = new THREE.AmbientLight(0xffffff, 0.9);
+scene.add(ambient);
 
-const light = new THREE.DirectionalLight(0xffffff, 1);
-light.position.set(20, 40, 20);
-scene.add(light);
+const dirLight = new THREE.DirectionalLight(0xffffff, 1);
+dirLight.position.set(20, 40, 20);
+scene.add(dirLight);
+
+let lightingMode = 0;
+
+function setLightingMode(mode) {
+switch (mode) {
+
+case 0: // studio (default)
+ambient.intensity = 0.9;
+dirLight.intensity = 1;
+scene.background.set(0x0b2a3a);
+break;
+
+case 1: // bright
+ambient.intensity = 1.3;
+dirLight.intensity = 1.5;
+scene.background.set(0x123b52);
+break;
+
+case 2: // dark
+ambient.intensity = 0.4;
+dirLight.intensity = 0.6;
+scene.background.set(0x050f14);
+break;
+
+}
+}
 
 /* MODEL */
 
@@ -131,7 +158,11 @@ if (!base) return;
 
 let mat = textureToggle.checked
 ? base.clone()
-: new THREE.MeshStandardMaterial({ color: 0x4aa3ff });
+: new THREE.MeshStandardMaterial({
+color: 0x4aa3ff,
+metalness: 0.2,
+roughness: 0.6
+});
 
 mat.wireframe = wireToggle.checked;
 
@@ -152,8 +183,6 @@ disposeModel(currentModel);
 /* CONTAINER */
 
 const container = new THREE.Group();
-
-/* ORIENTATION FIX */
 container.add(newModel);
 
 currentModel = container;
@@ -229,7 +258,6 @@ uploadInput.addEventListener("change", e => {
 const file = e.target.files[0];
 if (!file) return;
 
-/* FILE INFO */
 if (fileInfo) {
 fileInfo.textContent = `${file.name} (${(file.size / 1024).toFixed(1)} KB)`;
 }
@@ -249,9 +277,7 @@ loadingText.style.display = "none";
 viewBtn.disabled = false;
 };
 
-if (ext === "obj") {
-new OBJLoader().load(url, done);
-}
+if (ext === "obj") new OBJLoader().load(url, done);
 
 if (ext === "stl") {
 new STLLoader().load(url, geo => {
@@ -262,24 +288,16 @@ new THREE.MeshStandardMaterial({ color: 0x4aa3ff })
 });
 }
 
-if (ext === "fbx") {
-new FBXLoader().load(url, done);
-}
+if (ext === "fbx") new FBXLoader().load(url, done);
 
 });
 
 /* DRAG & DROP */
 
-viewport.addEventListener("dragover", e => {
-e.preventDefault();
-});
+viewport.addEventListener("dragover", e => e.preventDefault());
 
 viewport.addEventListener("drop", e => {
 e.preventDefault();
-
-const file = e.dataTransfer.files[0];
-if (!file) return;
-
 uploadInput.files = e.dataTransfer.files;
 uploadInput.dispatchEvent(new Event("change"));
 });
@@ -321,6 +339,7 @@ window.addEventListener("keydown", (e) => {
 if (!currentModel) return;
 
 switch (e.key.toLowerCase()) {
+
 case "r":
 currentModel.rotation.set(0, 0, 0);
 break;
@@ -333,6 +352,12 @@ case "w":
 wireToggle.checked = !wireToggle.checked;
 applyMaterialState();
 break;
+
+case "l": // 🔥 lighting toggle
+lightingMode = (lightingMode + 1) % 3;
+setLightingMode(lightingMode);
+break;
+
 }
 
 });
