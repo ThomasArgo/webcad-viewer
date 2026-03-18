@@ -68,43 +68,68 @@ scene.add(light);
 
 let currentModel = null;
 let pendingModel = null;
-
 let modelRadius = 1;
 
-let originalRotation = new THREE.Euler();
-let originalMaterials = new Map();
+/* MATERIAL STATE */
+
+const baseMaterials = new Map();
 
 /* MODEL STATS */
 
 function computeStats(object) {
-
 let triangles = 0;
 let vertices = 0;
 let meshes = 0;
 
 object.traverse(child => {
-
 if (child.isMesh && child.geometry) {
-
 meshes++;
 
 const geo = child.geometry;
-
 vertices += geo.attributes.position.count;
 
-if (geo.index) {
-triangles += geo.index.count / 3;
-} else {
-triangles += geo.attributes.position.count / 3;
+triangles += geo.index
+? geo.index.count / 3
+: geo.attributes.position.count / 3;
 }
-
-}
-
 });
 
 triEl.textContent = triangles.toLocaleString();
 vertEl.textContent = vertices.toLocaleString();
 meshEl.textContent = meshes;
+}
+
+/* APPLY MATERIAL STATE (FIXES GLITCH) */
+
+function applyMaterialState() {
+
+if (!currentModel) return;
+
+currentModel.traverse(child => {
+
+if (!child.isMesh) return;
+
+let base = baseMaterials.get(child);
+
+if (!base) return;
+
+/* clone fresh every time */
+
+let mat;
+
+if (textureToggle.checked) {
+mat = base.clone();
+} else {
+mat = new THREE.MeshStandardMaterial({ color: 0x4aa3ff });
+}
+
+/* apply wireframe consistently */
+
+mat.wireframe = wireToggle.checked;
+
+child.material = mat;
+
+});
 
 }
 
@@ -112,21 +137,27 @@ meshEl.textContent = meshes;
 
 function prepareModel() {
 
+/* REMOVE OLD MODEL COMPLETELY */
+
 if (currentModel) {
 scene.remove(currentModel);
 }
+
+/* CLEAR MATERIAL CACHE */
+
+baseMaterials.clear();
+
+/* ADD NEW */
 
 scene.add(currentModel);
 
 currentModel.updateMatrixWorld(true);
 
-/* bounding box */
+/* SCALE NORMALIZATION */
 
 const box = new THREE.Box3().setFromObject(currentModel);
 const size = new THREE.Vector3();
 box.getSize(size);
-
-/* normalize scale */
 
 const maxDim = Math.max(size.x, size.y, size.z);
 const targetSize = 50;
@@ -136,7 +167,7 @@ currentModel.scale.setScalar(scale);
 
 currentModel.updateMatrixWorld(true);
 
-/* bounding sphere */
+/* BOUNDING SPHERE */
 
 const scaledBox = new THREE.Box3().setFromObject(currentModel);
 const sphere = new THREE.Sphere();
@@ -144,24 +175,37 @@ scaledBox.getBoundingSphere(sphere);
 
 modelRadius = sphere.radius;
 
-/* set orbit target */
+/* TARGET */
 
 controls.target.copy(sphere.center);
 
+/* STORE BASE MATERIALS */
+
+currentModel.traverse(child => {
+if (child.isMesh) {
+baseMaterials.set(child, child.material);
+}
+});
+
+/* RESET UI STATE */
+
+wireToggle.checked = false;
+textureToggle.checked = true;
+
+applyMaterialState();
 }
 
-/* CAMERA FRAME */
+/* CAMERA */
 
 function frameCamera() {
 
-const offset = 1.8;
-const distance = modelRadius * offset;
+const distance = modelRadius * 1.8;
 
-const direction = new THREE.Vector3(1, 0.6, 1).normalize();
+const dir = new THREE.Vector3(1, 0.6, 1).normalize();
 
-const position = controls.target.clone().add(direction.multiplyScalar(distance));
-
-camera.position.copy(position);
+camera.position.copy(
+controls.target.clone().add(dir.multiplyScalar(distance))
+);
 
 camera.near = distance / 100;
 camera.far = distance * 100;
@@ -169,7 +213,6 @@ camera.far = distance * 100;
 camera.updateProjectionMatrix();
 
 controls.update();
-
 }
 
 /* LOAD FILE */
@@ -185,66 +228,35 @@ viewBtn.disabled = true;
 const url = URL.createObjectURL(file);
 const ext = file.name.split(".").pop().toLowerCase();
 
-/* OBJ */
-
 if (ext === "obj") {
-
 new OBJLoader().load(url, obj => {
-
-obj.updateMatrixWorld(true);
-
 pendingModel = obj;
-
 computeStats(obj);
-
 loadingText.style.display = "none";
 viewBtn.disabled = false;
-
 });
-
 }
 
-/* STL */
-
 if (ext === "stl") {
-
 new STLLoader().load(url, geo => {
-
 const mesh = new THREE.Mesh(
 geo,
 new THREE.MeshStandardMaterial({ color: 0x4aa3ff })
 );
-
-mesh.updateMatrixWorld(true);
-
 pendingModel = mesh;
-
 computeStats(mesh);
-
 loadingText.style.display = "none";
 viewBtn.disabled = false;
-
 });
-
 }
 
-/* FBX */
-
 if (ext === "fbx") {
-
 new FBXLoader().load(url, obj => {
-
-obj.updateMatrixWorld(true);
-
 pendingModel = obj;
-
 computeStats(obj);
-
 loadingText.style.display = "none";
 viewBtn.disabled = false;
-
 });
-
 }
 
 });
@@ -260,97 +272,39 @@ currentModel = pendingModel;
 prepareModel();
 frameCamera();
 
-originalRotation.copy(currentModel.rotation);
-
-originalMaterials.clear();
-
-currentModel.traverse(child => {
-if (child.isMesh) {
-originalMaterials.set(child, child.material);
-}
-});
-
 pendingModel = null;
 viewBtn.disabled = true;
 
 });
 
-/* CAMERA CONTROLS */
+/* TOGGLES */
+
+wireToggle.addEventListener("change", applyMaterialState);
+textureToggle.addEventListener("change", applyMaterialState);
+
+/* CAMERA BUTTONS */
 
 centerBtn.addEventListener("click", frameCamera);
 resetCameraBtn.addEventListener("click", frameCamera);
 
-/* WIREFRAME */
-
-wireToggle.addEventListener("change", e => {
-
-if (!currentModel) return;
-
-currentModel.traverse(child => {
-
-if (child.material) {
-
-if (Array.isArray(child.material)) {
-child.material.forEach(m => m.wireframe = e.target.checked);
-} else {
-child.material.wireframe = e.target.checked;
-}
-
-}
-
-});
-
-});
-
-/* TEXTURE */
-
-textureToggle.addEventListener("change", e => {
-
-if (!currentModel) return;
-
-currentModel.traverse(child => {
-
-if (child.isMesh) {
-
-if (e.target.checked) {
-child.material = originalMaterials.get(child);
-} else {
-child.material = new THREE.MeshStandardMaterial({
-color: 0x4aa3ff
-});
-}
-
-}
-
-});
-
-});
-
-/* RESET ROTATION */
+/* ROTATION */
 
 resetRotationBtn.addEventListener("click", () => {
-if (currentModel) {
-currentModel.rotation.copy(originalRotation);
-}
+if (currentModel) currentModel.rotation.set(0, 0, 0);
 });
 
-/* RENDER LOOP */
+/* RENDER */
 
 function animate() {
-
 requestAnimationFrame(animate);
 
 controls.update();
 
 if (autoRotateToggle.checked && currentModel) {
-
-const speed = parseFloat(rotateSpeedSlider.value);
-currentModel.rotation.y += speed;
-
+currentModel.rotation.y += parseFloat(rotateSpeedSlider.value);
 }
 
 renderer.render(scene, camera);
-
 }
 
 animate();
