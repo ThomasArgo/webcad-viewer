@@ -150,7 +150,10 @@ disposeModel(currentModel);
 
 /* SET NEW MODEL */
 
-currentModel = newModel;
+const container = new THREE.Group();
+container.add(newModel);
+
+currentModel = container;
 scene.add(currentModel);
 
 /* ✅ STORE ORIGINAL ROTATION (FIX) */
