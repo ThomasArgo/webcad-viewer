@@ -148,16 +148,17 @@ scene.remove(currentModel);
 disposeModel(currentModel);
 }
 
-/* SET NEW MODEL */
+/* 🔥 WRAP IN CONTAINER (KEY FIX) */
 
 const container = new THREE.Group();
+
+/* 🔥 NORMALIZE ORIENTATION (Z-up → Y-up) */
+newModel.rotation.x = -Math.PI / 2;
+
 container.add(newModel);
 
 currentModel = container;
 scene.add(currentModel);
-
-/* ✅ STORE ORIGINAL ROTATION (FIX) */
-currentModel.userData.initialRotation = currentModel.rotation.clone();
 
 baseMaterials.clear();
 
@@ -284,9 +285,7 @@ resetCameraBtn.addEventListener("click", frameCamera);
 /* ROTATION */
 
 resetRotationBtn.addEventListener("click", () => {
-if (currentModel && currentModel.userData.initialRotation) {
-currentModel.rotation.copy(currentModel.userData.initialRotation);
-}
+if (currentModel) currentModel.rotation.set(0, 0, 0);
 });
 
 /* LOOP */
