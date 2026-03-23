@@ -12,10 +12,11 @@ display:flex;
 height:100vh;
 }
 
+/* SIDEBAR */
+
 .sidebar{
 
 width:260px;
-padding:22px;
 background:#061821;
 border-right:1px solid rgba(90,180,255,0.2);
 
@@ -23,12 +24,20 @@ display:flex;
 flex-direction:column;
 
 position:relative;
-
 height:100vh;
 
-/* ✅ KEY FIX */
+/* ✅ NO CLIPPING */
 overflow:hidden;
 
+}
+
+/* ✅ SCROLL AREA */
+.sidebar-content{
+flex:1;
+overflow-y:auto;
+overflow-x:hidden;
+padding:22px;
+padding-right:8px;
 }
 
 /* bubbles */
@@ -152,22 +161,27 @@ border-radius:8px;
 
 border:1px solid rgba(90,180,255,0.15);
 
-margin-bottom:auto;
+margin-bottom:20px;
 
 }
 
+/* ✅ FOOTER PINNED */
+
 .sidebar-footer{
 
+padding:12px;
 font-size:12px;
 text-align:center;
 
 color:#7fa5b7;
 
-padding-top:12px;
-
 border-top:1px solid rgba(90,180,255,0.15);
 
+background:#061821;
+
 }
+
+/* VIEWPORT */
 
 .viewport{
 flex:1;
