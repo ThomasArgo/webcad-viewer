@@ -23,7 +23,11 @@ display:flex;
 flex-direction:column;
 
 position:relative;
-overflow:hidden;
+
+/* ✅ FIX */
+height:100vh;
+overflow-y:auto;
+overflow-x:hidden;
 
 }
 
