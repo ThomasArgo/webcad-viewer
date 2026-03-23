@@ -24,10 +24,10 @@ flex-direction:column;
 
 position:relative;
 
-/* ✅ FIX */
 height:100vh;
-overflow-y:auto;
-overflow-x:hidden;
+
+/* ✅ KEY FIX */
+overflow:hidden;
 
 }
 
