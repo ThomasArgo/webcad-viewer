@@ -1,23 +1,17 @@
-## Core features:
+# WebCAD Viewer
 
-- Upload OBJ / STL files
+A browser-based 3D model inspection tool built with Three.js. Models are parsed locally in the browser; files are not uploaded by the viewer.
 
-- Rotate model
+## Supported files
 
-- Zoom
+- OBJ
+- STL
+- FBX
 
-- Pan
+Use **Open model** or drag one file into the viewport. After loading, use the viewport controls to fit the model, choose a front/left/top view, toggle the grid or axes, and use the Inspector for appearance and lighting controls.
 
-- Reset camera
+## Notes
 
---------------------------------------
-
-## Then add:
-
-- Wireframe toggle
-
-- Lighting controls
-
-- Background themes
-
-- Model stats (vertices / faces)
+- For reliable browser performance, files larger than 250 MB are declined.
+- Self-contained model files work best. OBJ/FBX files that depend on separate material or texture files may render without those external assets when opened through a standard browser file picker.
+- The app is a static site and imports Three.js from unpkg; no build step is required.

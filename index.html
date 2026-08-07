@@ -1,100 +1,50 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>WebCAD Viewer</title>
-
-<link rel="stylesheet" href="style.css">
-
-<script type="importmap">
-{
-"imports": {
-"three": "https://unpkg.com/three@0.160.0/build/three.module.js",
-"three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
-}
-}
-</script>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="description" content="WebCAD Viewer is a browser-based tool for inspecting OBJ, STL, and FBX 3D models.">
+  <title>WebCAD Viewer | 3D model inspection</title><link rel="stylesheet" href="style.css">
+  <script type="importmap">{"imports":{"three":"https://unpkg.com/three@0.160.0/build/three.module.js","three/addons/":"https://unpkg.com/three@0.160.0/examples/jsm/"}}</script>
 </head>
-
 <body>
-
-<div class="app-shell">
-
-<aside class="sidebar">
-
-<div class="bubble-layer"></div>
-
-<!-- ✅ NEW WRAPPER -->
-<div class="sidebar-content">
-
-<h1>WebCAD Viewer</h1>
-<p class="subtitle">Upload OBJ / STL / FBX files</p>
-
-<label>Choose model</label>
-<input id="model-upload" type="file" accept=".obj,.stl,.fbx">
-
-<p id="loading-text">Loading model...</p>
-
-<button id="view-model-btn" disabled>View Model</button>
-
-<label class="toggle-row">
-<input id="wireframe-toggle" type="checkbox">
-<span>Wireframe Mode</span>
-</label>
-
-<label class="toggle-row">
-<input id="texture-toggle" type="checkbox" checked>
-<span>Show Texture</span>
-</label>
-
-<label class="toggle-row">
-<input id="auto-rotate" type="checkbox">
-<span>Auto Rotate</span>
-</label>
-
-<div class="slider-row">
-<span>Rotate Speed</span>
-<input id="rotate-speed" type="range" min="0" max="0.05" step="0.001" value="0.01">
+<a class="skip-link" href="#viewer">Skip to 3D viewer</a>
+<div class="app-shell" id="app-shell">
+  <header class="topbar">
+    <a class="brand" href="./" aria-label="WebCAD Viewer home"><span class="brand-mark">WC</span><span>WebCAD <b>Viewer</b></span></a>
+    <div class="file-actions"><input id="model-upload" type="file" accept=".obj,.stl,.fbx" hidden><button class="button button-primary" id="browse-button" type="button">Open model</button><span class="format-note">OBJ · STL · FBX</span></div>
+    <button class="panel-toggle" id="panel-toggle" type="button" aria-controls="inspector" aria-expanded="false">Inspector</button>
+  </header>
+  <main class="workspace">
+    <section class="viewer" id="viewer" aria-label="3D model viewport" tabindex="0">
+      <canvas id="viewer-canvas"></canvas>
+      <div class="viewer-tools" role="toolbar" aria-label="View controls">
+        <button type="button" class="tool-button" id="fit-view" title="Fit model to view" aria-label="Fit model to view">Fit</button>
+        <span class="tool-divider"></span>
+        <button type="button" class="tool-button" data-view="front" title="Front view" aria-label="Front view">F</button>
+        <button type="button" class="tool-button" data-view="left" title="Left view" aria-label="Left view">L</button>
+        <button type="button" class="tool-button" data-view="top" title="Top view" aria-label="Top view">T</button>
+        <span class="tool-divider"></span>
+        <button type="button" class="tool-button is-active" id="grid-toggle" title="Toggle grid" aria-pressed="true">Grid</button>
+        <button type="button" class="tool-button" id="axes-toggle" title="Toggle axes" aria-pressed="false">Axes</button>
+      </div>
+      <div class="empty-state" id="empty-state">
+        <div class="empty-icon" aria-hidden="true">↗</div><p class="eyebrow">3D model inspection</p><h1>Drop a model to start exploring.</h1>
+        <p>Open an OBJ, STL, or FBX file to inspect it in your browser. Orbit, pan, zoom, and switch to wireframe without uploading your work.</p>
+        <button class="button button-primary" id="empty-browse" type="button">Choose a model</button><p class="drop-hint">or drag and drop a file anywhere in the viewer</p>
+      </div>
+      <div class="drop-zone" id="drop-zone" aria-hidden="true"><div><strong>Release to open model</strong><span>OBJ, STL, or FBX</span></div></div>
+      <div class="loading-overlay" id="loading-overlay" role="status" aria-live="polite" hidden><span class="spinner" aria-hidden="true"></span><span id="loading-message">Reading model…</span></div>
+      <div class="viewport-status" id="viewport-status" aria-live="polite">Ready to open a model</div>
+    </section>
+    <aside class="inspector" id="inspector" aria-label="Model inspector">
+      <div class="panel-heading"><div><p class="eyebrow">Inspector</p><h2>Model details</h2></div><button id="close-panel" class="icon-button" type="button" aria-label="Close inspector">×</button></div>
+      <section class="panel-section"><h3>Appearance</h3><label class="switch-row"><span>Wireframe</span><input id="wireframe-toggle" type="checkbox"><i></i></label><label class="switch-row"><span>Show textures</span><input id="texture-toggle" type="checkbox" checked><i></i></label><label class="switch-row"><span>Auto rotate</span><input id="auto-rotate" type="checkbox"><i></i></label></section>
+      <section class="panel-section"><h3>Lighting</h3><div class="segmented" role="group" aria-label="Lighting preset"><button type="button" data-light="studio" class="is-active">Studio</button><button type="button" data-light="bright">Bright</button><button type="button" data-light="dim">Dim</button></div></section>
+      <section class="panel-section model-info"><h3>Model information</h3><dl><div><dt>Name</dt><dd id="info-name">—</dd></div><div><dt>Format</dt><dd id="info-format">—</dd></div><div><dt>File size</dt><dd id="info-size">—</dd></div><div><dt>Meshes</dt><dd id="info-meshes">—</dd></div><div><dt>Vertices</dt><dd id="info-vertices">—</dd></div><div><dt>Triangles</dt><dd id="info-triangles">—</dd></div><div><dt>Dimensions</dt><dd id="info-dimensions">—</dd></div></dl></section>
+      <section class="panel-section keyboard-hints"><h3>Navigation</h3><p><kbd>Drag</kbd> orbit <kbd>Right drag</kbd> pan <kbd>Scroll</kbd> zoom</p><p><kbd>F</kbd> fit <kbd>G</kbd> grid <kbd>W</kbd> wireframe</p></section>
+    </aside>
+  </main>
+  <div class="toast" id="toast" role="alert" aria-live="assertive" hidden></div>
 </div>
-
-<div class="slider-row">
-<span>Lighting</span>
-<select id="lighting-select">
-<option value="0">Studio</option>
-<option value="1">Bright</option>
-<option value="2">Dark</option>
-</select>
-</div>
-
-<button id="center-model">Focus Model</button>
-<button id="reset-model-rotation">Reset Model Rotation</button>
-<button id="reset-view">Reset Camera</button>
-
-<div class="stats-card">
-<h2>Model Stats</h2>
-<p>Triangles: <span id="triangle-count">0</span></p>
-<p>Vertices: <span id="vertex-count">0</span></p>
-<p>Meshes: <span id="mesh-count">0</span></p>
-</div>
-
-</div>
-
-<!-- ✅ FOOTER NOW FIXED AT BOTTOM -->
-<div class="sidebar-footer">
-© Thomas Argo 2026
-</div>
-
-</aside>
-
-<main class="viewport">
-<canvas id="viewer-canvas"></canvas>
-</main>
-
-</div>
-
 <script type="module" src="script.js"></script>
-
-</body>
-</html>
+</body></html>

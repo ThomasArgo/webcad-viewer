@@ -4,335 +4,161 @@ import { OBJLoader } from "three/addons/loaders/OBJLoader.js";
 import { STLLoader } from "three/addons/loaders/STLLoader.js";
 import { FBXLoader } from "three/addons/loaders/FBXLoader.js";
 
-/* DOM */
-
-const canvas = document.getElementById("viewer-canvas");
-const viewport = document.querySelector(".viewport");
-
-const uploadInput = document.getElementById("model-upload");
-const viewBtn = document.getElementById("view-model-btn");
-const loadingText = document.getElementById("loading-text");
-
-const triEl = document.getElementById("triangle-count");
-const vertEl = document.getElementById("vertex-count");
-const meshEl = document.getElementById("mesh-count");
-
-const wireToggle = document.getElementById("wireframe-toggle");
-const textureToggle = document.getElementById("texture-toggle");
-const autoRotateToggle = document.getElementById("auto-rotate");
-
-const rotateSpeedSlider = document.getElementById("rotate-speed");
-
-const centerBtn = document.getElementById("center-model");
-const resetRotationBtn = document.getElementById("reset-model-rotation");
-const resetCameraBtn = document.getElementById("reset-view");
-
-const lightingSelect = document.getElementById("lighting-select");
-
-/* SCENE */
+const $ = (id) => document.getElementById(id);
+const dom = {
+  app: $("app-shell"), canvas: $("viewer-canvas"), viewer: $("viewer"), upload: $("model-upload"),
+  browse: $("browse-button"), emptyBrowse: $("empty-browse"), empty: $("empty-state"), dropZone: $("drop-zone"),
+  loading: $("loading-overlay"), loadingMessage: $("loading-message"), status: $("viewport-status"), toast: $("toast"),
+  wire: $("wireframe-toggle"), textures: $("texture-toggle"), rotate: $("auto-rotate"), grid: $("grid-toggle"), axes: $("axes-toggle"), fit: $("fit-view"),
+  inspector: $("inspector"), panelToggle: $("panel-toggle"), closePanel: $("close-panel"),
+  info: ["name", "format", "size", "meshes", "vertices", "triangles", "dimensions"].reduce((out, key) => ({ ...out, [key]: $("info-" + key) }), {})
+};
+const state = { model: null, radius: 10, loadId: 0, animationFrame: null, light: "studio", materialStates: new Map(), toastTimer: null, rotateToken: 0 };
 
 const scene = new THREE.Scene();
-scene.background = new THREE.Color(0x0b2a3a);
-
-/* CAMERA */
-
-const camera = new THREE.PerspectiveCamera(
-75,
-viewport.clientWidth / viewport.clientHeight,
-0.01,
-100000
-);
-
-/* RENDERER */
-
-const renderer = new THREE.WebGLRenderer({
-canvas,
-antialias: true
-});
-
-renderer.setSize(viewport.clientWidth, viewport.clientHeight);
-
-/* CONTROLS */
+scene.background = new THREE.Color(0xdce5e6);
+const camera = new THREE.PerspectiveCamera(45, 1, 0.01, 10000);
+const renderer = new THREE.WebGLRenderer({ canvas: dom.canvas, antialias: true, powerPreference: "high-performance" });
+renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, matchMedia("(max-width: 800px)").matches ? 1.5 : 2));
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.05;
 
 const controls = new OrbitControls(camera, renderer.domElement);
-controls.enableDamping = true;
-controls.enablePan = false;
+controls.enableDamping = false;
+controls.screenSpacePanning = true;
+controls.addEventListener("change", requestRender);
 
-/* LIGHTS */
+const grid = new THREE.GridHelper(24, 24, 0x81999d, 0xb9c9cb);
+grid.material.opacity = 0.62; grid.material.transparent = true; scene.add(grid);
+const axes = new THREE.AxesHelper(4); axes.visible = false; scene.add(axes);
+const hemi = new THREE.HemisphereLight(0xf3fbff, 0x59676b, 1.4); scene.add(hemi);
+const key = new THREE.DirectionalLight(0xffffff, 2.2); key.position.set(8, 12, 8); scene.add(key);
+const fill = new THREE.DirectionalLight(0xc8e6ea, 1.1); fill.position.set(-8, 4, -6); scene.add(fill);
 
-const ambient = new THREE.AmbientLight(0xffffff, 0.9);
-scene.add(ambient);
+function requestRender() { if (!state.animationFrame) state.animationFrame = requestAnimationFrame(render); }
+function render() { state.animationFrame = null; renderer.render(scene, camera); }
+function setStatus(message) { dom.status.textContent = message; }
+function showToast(message) { clearTimeout(state.toastTimer); dom.toast.textContent = message; dom.toast.hidden = false; state.toastTimer = setTimeout(() => { dom.toast.hidden = true; }, 6500); }
+function setLoading(visible, message = "Reading model…") { dom.loading.hidden = !visible; dom.loadingMessage.textContent = message; dom.upload.disabled = visible; dom.browse.disabled = visible; dom.emptyBrowse.disabled = visible; }
+function formatBytes(bytes) { if (!Number.isFinite(bytes)) return "—"; if (bytes < 1024) return `${bytes} B`; const units = ["KB", "MB", "GB"]; let value = bytes / 1024; let index = 0; while (value >= 1024 && index < units.length - 1) { value /= 1024; index++; } return `${value.toFixed(value >= 10 ? 1 : 2)} ${units[index]}`; }
+function formatDimension(value) { return Number.isFinite(value) ? (Math.abs(value) >= 1000 || Math.abs(value) < .01 ? value.toExponential(2) : value.toFixed(2)) : "—"; }
 
-const dirLight = new THREE.DirectionalLight(0xffffff, 1);
-dirLight.position.set(20, 40, 20);
-scene.add(dirLight);
-
-/* LIGHTING MODES */
-
-function setLightingMode(mode) {
-
-switch (mode) {
-
-case "0": // Studio
-ambient.intensity = 0.9;
-dirLight.intensity = 1;
-scene.background.set(0x0b2a3a);
-break;
-
-case "1": // Bright
-ambient.intensity = 1.3;
-dirLight.intensity = 1.5;
-scene.background.set(0x123b52);
-break;
-
-case "2": // Dark
-ambient.intensity = 0.4;
-dirLight.intensity = 0.6;
-scene.background.set(0x050f14);
-break;
-
-}
+function setLighting(mode) {
+  state.light = mode;
+  const presets = { studio: [0xdce5e6, 1.4, 2.2, 1.1], bright: [0xe8eeee, 1.8, 2.8, 1.5], dim: [0x738084, .75, 1.1, .45] };
+  const [background, hemiIntensity, keyIntensity, fillIntensity] = presets[mode];
+  scene.background.set(background); hemi.intensity = hemiIntensity; key.intensity = keyIntensity; fill.intensity = fillIntensity;
+  document.querySelectorAll("[data-light]").forEach(button => button.classList.toggle("is-active", button.dataset.light === mode));
+  requestRender();
 }
 
-/* DEFAULT */
-setLightingMode("0");
-
-/* MODEL */
-
-let currentModel = null;
-let pendingModel = null;
-let modelRadius = 1;
-
-const baseMaterials = new Map();
-
-/* CLEANUP */
-
-function disposeModel(model) {
-model.traverse(child => {
-if (child.isMesh) {
-child.geometry?.dispose();
-if (Array.isArray(child.material)) {
-child.material.forEach(m => m.dispose());
-} else {
-child.material?.dispose();
+function textureFromValue(value, textureSet) {
+  if (!value) return; if (value.isTexture) textureSet.add(value);
+  if (Array.isArray(value)) value.forEach(item => textureFromValue(item, textureSet));
 }
+function disposeObject(object) {
+  const geometries = new Set(), materials = new Set(), textures = new Set();
+  object.traverse(child => {
+    if (!child.isMesh) return;
+    if (child.geometry) geometries.add(child.geometry);
+    const meshMaterials = Array.isArray(child.material) ? child.material : [child.material];
+    meshMaterials.filter(Boolean).forEach(material => { materials.add(material); Object.values(material).forEach(value => textureFromValue(value, textures)); });
+  });
+  geometries.forEach(geometry => geometry.dispose()); textures.forEach(texture => texture.dispose()); materials.forEach(material => material.dispose());
 }
-});
+function clearModel() {
+  if (!state.model) return;
+  scene.remove(state.model); disposeObject(state.model); state.model = null; state.materialStates.clear();
 }
-
-/* STATS */
-
-function computeStats(object) {
-let triangles = 0;
-let vertices = 0;
-let meshes = 0;
-
-object.traverse(child => {
-if (child.isMesh && child.geometry) {
-meshes++;
-const geo = child.geometry;
-vertices += geo.attributes.position.count;
-triangles += geo.index
-? geo.index.count / 3
-: geo.attributes.position.count / 3;
+function normalMaterial() { return new THREE.MeshStandardMaterial({ color: 0x73aab0, roughness: .6, metalness: .05 }); }
+function rememberMaterials(root) {
+  state.materialStates.clear();
+  root.traverse(child => {
+    if (!child.isMesh) return;
+    if (!child.material) child.material = normalMaterial();
+    const materials = Array.isArray(child.material) ? child.material : [child.material];
+    materials.forEach(material => state.materialStates.set(material, { map: material.map || null, wireframe: material.wireframe, color: material.color?.clone() || null }));
+  });
 }
-});
-
-triEl.textContent = triangles.toLocaleString();
-vertEl.textContent = vertices.toLocaleString();
-meshEl.textContent = meshes;
+function applyAppearance() {
+  state.materialStates.forEach((saved, material) => {
+    material.wireframe = dom.wire.checked;
+    if ("map" in material) { material.map = dom.textures.checked ? saved.map : null; material.needsUpdate = true; }
+  });
+  requestRender();
 }
-
-/* MATERIAL */
-
-function applyMaterialState() {
-
-if (!currentModel) return;
-
-currentModel.traverse(child => {
-
-if (!child.isMesh) return;
-
-const base = baseMaterials.get(child);
-if (!base) return;
-
-let mat = textureToggle.checked
-? base.clone()
-: new THREE.MeshStandardMaterial({ color: 0x4aa3ff });
-
-mat.wireframe = wireToggle.checked;
-
-child.material = mat;
-
-});
+function inspectModel(root) {
+  let meshes = 0, vertices = 0, triangles = 0;
+  root.traverse(child => {
+    if (!child.isMesh || !child.geometry?.attributes.position) return;
+    meshes++; const geometry = child.geometry; vertices += geometry.attributes.position.count;
+    triangles += geometry.index ? geometry.index.count / 3 : geometry.attributes.position.count / 3;
+  });
+  return { meshes, vertices, triangles };
+}
+function updateInfo(file, extension, dimensions, stats) {
+  const info = dom.info;
+  info.name.textContent = file.name; info.name.title = file.name; info.format.textContent = extension.toUpperCase(); info.size.textContent = formatBytes(file.size);
+  info.meshes.textContent = stats.meshes.toLocaleString(); info.vertices.textContent = Math.round(stats.vertices).toLocaleString(); info.triangles.textContent = Math.round(stats.triangles).toLocaleString();
+  info.dimensions.textContent = `${formatDimension(dimensions.x)} × ${formatDimension(dimensions.y)} × ${formatDimension(dimensions.z)}`;
 }
 
-/* PREPARE MODEL */
+function addModel(source, file, extension) {
+  source.updateMatrixWorld(true);
+  const originalBox = new THREE.Box3().setFromObject(source);
+  const originalSize = originalBox.getSize(new THREE.Vector3());
+  const sphere = originalBox.getBoundingSphere(new THREE.Sphere());
+  if (!Number.isFinite(sphere.radius) || sphere.radius <= Number.EPSILON) throw new Error("This file does not contain a model with visible dimensions.");
+  const stats = inspectModel(source);
+  if (!stats.meshes) throw new Error("No renderable mesh data was found in this file.");
+  source.position.sub(originalBox.getCenter(new THREE.Vector3()));
+  const root = new THREE.Group(); root.name = "Loaded model"; root.add(source);
+  const targetRadius = 10; root.scale.setScalar(targetRadius / sphere.radius); root.updateMatrixWorld(true);
+  clearModel(); state.model = root; state.radius = targetRadius; scene.add(root); rememberMaterials(root); dom.wire.checked = false; dom.textures.checked = true; applyAppearance();
+  updateInfo(file, extension, originalSize, stats); dom.empty.hidden = true; frameCamera();
+  setStatus(`${file.name} loaded · ${stats.meshes} mesh${stats.meshes === 1 ? "" : "es"}`);
+}
+function frameCamera(direction = new THREE.Vector3(1, .75, 1)) {
+  if (!state.model) { camera.position.set(13, 10, 13); controls.target.set(0, 0, 0); controls.update(); requestRender(); return; }
+  const distance = state.radius * 2.6; const normalized = direction.clone().normalize();
+  camera.position.copy(normalized.multiplyScalar(distance)); camera.near = Math.max(.01, state.radius / 100); camera.far = state.radius * 100; camera.updateProjectionMatrix();
+  controls.target.set(0, 0, 0); controls.minDistance = state.radius * .15; controls.maxDistance = state.radius * 25; controls.update(); requestRender();
+}
+const viewDirections = { front: new THREE.Vector3(0, 0, 1), left: new THREE.Vector3(-1, 0, 0), top: new THREE.Vector3(0, 1, 0) };
 
-function prepareModel(newModel) {
-
-if (currentModel) {
-scene.remove(currentModel);
-disposeModel(currentModel);
+async function parseFile(file, extension) {
+  const buffer = await file.arrayBuffer();
+  if (!buffer.byteLength) throw new Error("This file is empty. Choose a model file with geometry.");
+  if (extension === "obj") return new OBJLoader().parse(new TextDecoder().decode(buffer));
+  if (extension === "stl") return new THREE.Mesh(new STLLoader().parse(buffer), normalMaterial());
+  if (extension === "fbx") return new FBXLoader().parse(buffer, "./");
+  throw new Error("Only OBJ, STL, and FBX models are supported.");
+}
+async function loadFile(file) {
+  const extension = file?.name.split(".").pop()?.toLowerCase();
+  if (!file || !["obj", "stl", "fbx"].includes(extension)) { showToast("Choose an OBJ, STL, or FBX model file."); return; }
+  if (!file.size) { showToast("That file is empty. Choose a model file with geometry."); return; }
+  if (file.size > 250 * 1024 * 1024) { showToast("This file is larger than 250 MB and may not load reliably in a browser."); return; }
+  const loadId = ++state.loadId; setLoading(true, `Loading ${file.name}…`); setStatus("Loading model…");
+  try { const model = await parseFile(file, extension); if (loadId !== state.loadId) { disposeObject(model); return; } addModel(model, file, extension); }
+  catch (error) { console.error("Model load failed", error); if (loadId === state.loadId) { const message = error.message?.includes("No renderable") || error.message?.includes("visible dimensions") || error.message?.includes("empty") ? error.message : "We couldn’t read that model. Check that the file is a valid, self-contained OBJ, STL, or FBX file."; showToast(message); setStatus("Model could not be loaded"); } }
+  finally { if (loadId === state.loadId) { setLoading(false); dom.upload.value = ""; } }
 }
 
-const container = new THREE.Group();
-container.add(newModel);
+function togglePanel(open) { dom.inspector.classList.toggle("is-open", open); dom.panelToggle.setAttribute("aria-expanded", String(open)); }
+function toggleAutoRotate() { const token = ++state.rotateToken; if (!dom.rotate.checked) { requestRender(); return; } const spin = () => { if (!dom.rotate.checked || token !== state.rotateToken) return; if (state.model) { state.model.rotation.y += .006; requestRender(); } requestAnimationFrame(spin); }; requestAnimationFrame(spin); }
 
-currentModel = container;
-scene.add(currentModel);
-
-baseMaterials.clear();
-
-currentModel.updateMatrixWorld(true);
-
-/* SCALE */
-
-const box = new THREE.Box3().setFromObject(currentModel);
-const size = new THREE.Vector3();
-box.getSize(size);
-
-const maxDim = Math.max(size.x, size.y, size.z);
-const scale = 50 / maxDim;
-
-currentModel.scale.setScalar(scale);
-currentModel.updateMatrixWorld(true);
-
-/* CENTER */
-
-const center = new THREE.Box3().setFromObject(currentModel).getCenter(new THREE.Vector3());
-currentModel.position.sub(center);
-
-/* BOUNDS */
-
-const sphere = new THREE.Sphere();
-new THREE.Box3().setFromObject(currentModel).getBoundingSphere(sphere);
-
-modelRadius = sphere.radius;
-controls.target.set(0, 0, 0);
-
-/* STORE MATERIALS */
-
-currentModel.traverse(child => {
-if (child.isMesh) {
-baseMaterials.set(child, child.material);
-}
-});
-
-wireToggle.checked = false;
-textureToggle.checked = true;
-
-applyMaterialState();
-}
-
-/* CAMERA */
-
-function frameCamera() {
-
-const dist = modelRadius * 1.8;
-const dir = new THREE.Vector3(1, 0.6, 1).normalize();
-
-camera.position.copy(dir.multiplyScalar(dist));
-
-camera.near = dist / 100;
-camera.far = dist * 100;
-
-camera.updateProjectionMatrix();
-controls.update();
-}
-
-/* LOAD */
-
-uploadInput.addEventListener("change", e => {
-
-const file = e.target.files[0];
-if (!file) return;
-
-loadingText.style.display = "block";
-viewBtn.disabled = true;
-
-const url = URL.createObjectURL(file);
-const ext = file.name.split(".").pop().toLowerCase();
-
-const done = (model) => {
-pendingModel = model;
-computeStats(model);
-loadingText.style.display = "none";
-viewBtn.disabled = false;
-};
-
-if (ext === "obj") new OBJLoader().load(url, done);
-
-if (ext === "stl") {
-new STLLoader().load(url, geo => {
-done(new THREE.Mesh(
-geo,
-new THREE.MeshStandardMaterial({ color: 0x4aa3ff })
-));
-});
-}
-
-if (ext === "fbx") new FBXLoader().load(url, done);
-
-});
-
-/* VIEW */
-
-viewBtn.addEventListener("click", () => {
-if (!pendingModel) return;
-prepareModel(pendingModel);
-frameCamera();
-pendingModel = null;
-viewBtn.disabled = true;
-});
-
-/* LIGHTING DROPDOWN */
-
-lightingSelect.addEventListener("change", (e) => {
-setLightingMode(e.target.value);
-});
-
-/* TOGGLES */
-
-wireToggle.addEventListener("change", applyMaterialState);
-textureToggle.addEventListener("change", applyMaterialState);
-
-/* CAMERA */
-
-centerBtn.addEventListener("click", frameCamera);
-resetCameraBtn.addEventListener("click", frameCamera);
-
-/* ROTATION */
-
-resetRotationBtn.addEventListener("click", () => {
-if (currentModel) currentModel.rotation.set(0, 0, 0);
-});
-
-/* LOOP */
-
-function animate() {
-
-requestAnimationFrame(animate);
-
-controls.update();
-
-if (autoRotateToggle.checked && currentModel) {
-currentModel.rotation.y += parseFloat(rotateSpeedSlider.value);
-}
-
-renderer.render(scene, camera);
-
-}
-
-animate();
-
-/* RESIZE */
-
-window.addEventListener("resize", () => {
-
-camera.aspect = viewport.clientWidth / viewport.clientHeight;
-camera.updateProjectionMatrix();
-
-renderer.setSize(viewport.clientWidth, viewport.clientHeight);
-
-});
+dom.browse.addEventListener("click", () => dom.upload.click()); dom.emptyBrowse.addEventListener("click", () => dom.upload.click()); dom.upload.addEventListener("change", event => loadFile(event.target.files[0]));
+["dragenter", "dragover"].forEach(type => dom.app.addEventListener(type, event => { event.preventDefault(); if (!dom.loading.hidden) return; dom.dropZone.classList.add("is-active"); }));
+["dragleave", "drop"].forEach(type => dom.app.addEventListener(type, event => { event.preventDefault(); if (type === "dragleave" && event.relatedTarget && dom.app.contains(event.relatedTarget)) return; dom.dropZone.classList.remove("is-active"); }));
+dom.app.addEventListener("drop", event => { const file = event.dataTransfer.files[0]; if (event.dataTransfer.files.length > 1) showToast("Loading the first dropped file only."); loadFile(file); });
+dom.wire.addEventListener("change", applyAppearance); dom.textures.addEventListener("change", applyAppearance); dom.rotate.addEventListener("change", toggleAutoRotate);
+dom.grid.addEventListener("click", () => { grid.visible = !grid.visible; dom.grid.classList.toggle("is-active", grid.visible); dom.grid.setAttribute("aria-pressed", String(grid.visible)); requestRender(); });
+dom.axes.addEventListener("click", () => { axes.visible = !axes.visible; dom.axes.classList.toggle("is-active", axes.visible); dom.axes.setAttribute("aria-pressed", String(axes.visible)); requestRender(); });
+dom.fit.addEventListener("click", () => frameCamera()); document.querySelectorAll("[data-view]").forEach(button => button.addEventListener("click", () => frameCamera(viewDirections[button.dataset.view]))); document.querySelectorAll("[data-light]").forEach(button => button.addEventListener("click", () => setLighting(button.dataset.light)));
+dom.panelToggle.addEventListener("click", () => togglePanel(!dom.inspector.classList.contains("is-open"))); dom.closePanel.addEventListener("click", () => togglePanel(false));
+window.addEventListener("keydown", event => { if (event.target.matches("input,button,select,textarea")) return; if (event.key.toLowerCase() === "f") frameCamera(); if (event.key.toLowerCase() === "g") dom.grid.click(); if (event.key.toLowerCase() === "w") { dom.wire.checked = !dom.wire.checked; applyAppearance(); } });
+new ResizeObserver(() => { const { width, height } = dom.viewer.getBoundingClientRect(); if (!width || !height) return; camera.aspect = width / height; camera.updateProjectionMatrix(); renderer.setSize(width, height, false); requestRender(); }).observe(dom.viewer);
+window.addEventListener("beforeunload", () => { ++state.loadId; clearModel(); controls.dispose(); renderer.dispose(); });
+setLighting("studio"); frameCamera();
