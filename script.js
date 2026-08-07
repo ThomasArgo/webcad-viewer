@@ -135,13 +135,24 @@ async function parseFile(file, extension) {
   if (extension === "fbx") return new FBXLoader().parse(buffer, "./");
   throw new Error("Only OBJ, STL, and FBX models are supported.");
 }
+// STL has no embedded coordinate-system or up-axis metadata. The CAD files used
+// by this viewer are exported Z-up, whereas Three.js uses Y-up. Keep this at the
+// format boundary so every STL is normalized before bounds/camera processing.
+function normalizeImportOrientation(model, extension) {
+  if (extension !== "stl") return model;
+  const normalized = new THREE.Group();
+  normalized.name = "STL Z-up to Y-up conversion";
+  normalized.rotation.x = -Math.PI / 2;
+  normalized.add(model);
+  return normalized;
+}
 async function loadFile(file) {
   const extension = file?.name.split(".").pop()?.toLowerCase();
   if (!file || !["obj", "stl", "fbx"].includes(extension)) { showToast("Choose an OBJ, STL, or FBX model file."); return; }
   if (!file.size) { showToast("That file is empty. Choose a model file with geometry."); return; }
   if (file.size > 250 * 1024 * 1024) { showToast("This file is larger than 250 MB and may not load reliably in a browser."); return; }
   const loadId = ++state.loadId; setLoading(true, `Loading ${file.name}…`); setStatus("Loading model…");
-  try { const model = await parseFile(file, extension); if (loadId !== state.loadId) { disposeObject(model); return; } addModel(model, file, extension); }
+  try { const parsedModel = await parseFile(file, extension); const model = normalizeImportOrientation(parsedModel, extension); if (loadId !== state.loadId) { disposeObject(model); return; } addModel(model, file, extension); }
   catch (error) { console.error("Model load failed", error); if (loadId === state.loadId) { const message = error.message?.includes("No renderable") || error.message?.includes("visible dimensions") || error.message?.includes("empty") ? error.message : "We couldn’t read that model. Check that the file is a valid, self-contained OBJ, STL, or FBX file."; showToast(message); setStatus("Model could not be loaded"); } }
   finally { if (loadId === state.loadId) { setLoading(false); dom.upload.value = ""; } }
 }
